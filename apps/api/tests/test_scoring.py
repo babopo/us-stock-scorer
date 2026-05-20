@@ -1,4 +1,5 @@
 from stock_scorer.models import ActionDecision, HorizonLabel, ShortTermLabel
+from stock_scorer.fixtures import get_stock_score
 from stock_scorer.scoring import (
     classify_medium_term_score,
     classify_short_term_state,
@@ -40,3 +41,22 @@ def test_decide_action_weak_medium_and_entry_is_short_term_only():
 
     assert decision.action == ActionDecision.SHORT_TERM_ONLY
     assert "短线" in decision.summary
+
+
+def test_get_stock_score_for_msft():
+    score = get_stock_score("MSFT")
+
+    assert score.ticker == "MSFT"
+    assert score.medium_term_score == 82
+    assert score.short_term_score == 58
+    assert score.decision.action == ActionDecision.WAIT
+    assert len(score.factors) == 5
+
+
+def test_get_stock_score_rejects_unknown_ticker():
+    try:
+        get_stock_score("UNKNOWN")
+    except KeyError as exc:
+        assert "UNKNOWN" in str(exc)
+    else:
+        raise AssertionError("Expected KeyError for unknown ticker")

@@ -1,0 +1,19 @@
+{
+  "MSFT": {
+    "ticker": "MSFT",
+    "company_name": "Microsoft Corporation",
+    "last_price": 425.52,
+    "medium_term_score": 82,
+    "short_term_score": 58,
+    "overheated": true,
+    "broken_trend": false,
+    "data_as_of": "2026-05-20",
+    "factors": [
+      {"name": "质量/盈利", "score": 90, "evidence": ["ROIC 和自由现金流质量强", "经营利润率处于行业高位"]},
+      {"name": "估值", "score": 62, "evidence": ["估值高于市场中位数", "现金流质量部分支撑溢价"]},
+      {"name": "成长与预期", "score": 84, "evidence": ["收入和 EPS 增长稳定", "云业务仍是主要增长来源"]},
+      {"name": "投资纪律/财务稳健", "score": 86, "evidence": ["资产负债表稳健", "股本稀释风险较低"]},
+      {"name": "中期动量与风险", "score": 78, "evidence": ["相对 QQQ 保持强势", "短期涨幅后波动略高"]}
+    ]
+  }
+}
