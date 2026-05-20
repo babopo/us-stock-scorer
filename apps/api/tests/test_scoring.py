@@ -23,3 +23,20 @@ def test_decide_action_strong_medium_and_wait_pullback():
 
     assert decision.action == ActionDecision.WAIT
     assert "不追高" in decision.summary
+
+
+def test_decide_action_strong_medium_and_entry():
+    decision = decide_action(HorizonLabel.STRONG, ShortTermLabel.ENTRY)
+
+    assert decision.action == ActionDecision.BUY_IN_TRANCHES
+    assert "分批" in decision.summary
+    assert decision.trigger_conditions
+    assert decision.invalidation_conditions
+    assert decision.risks
+
+
+def test_decide_action_weak_medium_and_entry_is_short_term_only():
+    decision = decide_action(HorizonLabel.WEAK, ShortTermLabel.ENTRY)
+
+    assert decision.action == ActionDecision.SHORT_TERM_ONLY
+    assert "短线" in decision.summary
