@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Node / Mini Program tooling
+node_modules/
+miniprogram_npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local outputs
+data/raw/
+data/cache/
+reports/
+*.log
+
