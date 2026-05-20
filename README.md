@@ -26,5 +26,25 @@ us-stock-scorer/
 
 ## Current Status
 
-目前仓库只包含设计和实施计划，还没有业务代码。下一步按实施计划从后端评分 MVP 开始。
+当前 MVP 包含基于 fixture 数据的后端评分 API 和微信小程序页面。下一阶段是接入真实行情/财报数据，并保存每日评分快照用于回测。
 
+## Local Development
+
+Backend:
+
+```bash
+cd apps/api
+python -m pip install -e ".[dev]"
+uvicorn stock_scorer.app:app --reload --port 8000
+```
+
+Tests:
+
+```bash
+cd apps/api
+pytest -v
+```
+
+Mini Program:
+
+Open `apps/miniprogram` in WeChat DevTools.
