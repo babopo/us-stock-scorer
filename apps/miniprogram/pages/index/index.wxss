@@ -1,0 +1,120 @@
+.page {
+  padding: 24rpx;
+}
+
+.toolbar {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.ticker-input {
+  flex: 1;
+  height: 80rpx;
+  padding: 0 20rpx;
+  background: #ffffff;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 8rpx;
+}
+
+.query-button {
+  width: 160rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  background: #2563eb;
+  color: #ffffff;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+}
+
+.error {
+  padding: 20rpx;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 8rpx;
+}
+
+.summary,
+.section {
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  background: #ffffff;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 8rpx;
+}
+
+.ticker-row {
+  display: flex;
+  gap: 16rpx;
+  align-items: baseline;
+}
+
+.ticker {
+  font-size: 44rpx;
+  font-weight: 700;
+}
+
+.company,
+.price,
+.decision-copy,
+.line,
+.evidence {
+  display: block;
+  color: #475569;
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.score-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+  margin: 24rpx 0;
+}
+
+.score-box {
+  padding: 20rpx;
+  background: #f8fafc;
+  border-radius: 8rpx;
+}
+
+.score-label {
+  display: block;
+  color: #64748b;
+  font-size: 24rpx;
+}
+
+.score-value {
+  display: block;
+  color: #0f172a;
+  font-size: 48rpx;
+  font-weight: 700;
+}
+
+.decision-title,
+.section-title {
+  display: block;
+  margin-bottom: 12rpx;
+  color: #0f172a;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.factor {
+  padding: 16rpx 0;
+  border-top: 1rpx solid #e2e8f0;
+}
+
+.factor:first-of-type {
+  border-top: 0;
+}
+
+.factor-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+  color: #111827;
+  font-size: 28rpx;
+  font-weight: 600;
+}

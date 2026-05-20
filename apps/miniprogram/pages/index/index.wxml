@@ -1,0 +1,56 @@
+<view class="page">
+  <view class="toolbar">
+    <input class="ticker-input" value="{{ticker}}" bindinput="onTickerInput" placeholder="输入美股代码" />
+    <button class="query-button" bindtap="fetchScore" loading="{{loading}}">查询</button>
+  </view>
+
+  <view wx:if="{{error}}" class="error">{{error}}</view>
+
+  <view wx:if="{{score}}" class="summary">
+    <view class="ticker-row">
+      <text class="ticker">{{score.ticker}}</text>
+      <text class="company">{{score.company_name}}</text>
+    </view>
+    <text class="price">最新价：${{score.last_price}}</text>
+    <view class="score-grid">
+      <view class="score-box">
+        <text class="score-label">中长期</text>
+        <text class="score-value">{{score.medium_term_score}}</text>
+      </view>
+      <view class="score-box">
+        <text class="score-label">1-2周</text>
+        <text class="score-value">{{score.short_term_score}}</text>
+      </view>
+    </view>
+    <view class="decision">
+      <text class="decision-title">当前行动</text>
+      <text class="decision-copy">{{score.decision.summary}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{score}}" class="section">
+    <text class="section-title">因子证据</text>
+    <view wx:for="{{score.factors}}" wx:key="name" class="factor">
+      <view class="factor-head">
+        <text>{{item.name}}</text>
+        <text>{{item.score}}</text>
+      </view>
+      <text wx:for="{{item.evidence}}" wx:key="*this" class="evidence">- {{item}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{score}}" class="section">
+    <text class="section-title">触发条件</text>
+    <text wx:for="{{score.decision.trigger_conditions}}" wx:key="*this" class="line">- {{item}}</text>
+  </view>
+
+  <view wx:if="{{score}}" class="section">
+    <text class="section-title">失效条件</text>
+    <text wx:for="{{score.decision.invalidation_conditions}}" wx:key="*this" class="line">- {{item}}</text>
+  </view>
+
+  <view wx:if="{{score}}" class="section">
+    <text class="section-title">风险提示</text>
+    <text wx:for="{{score.decision.risks}}" wx:key="*this" class="line">- {{item}}</text>
+  </view>
+</view>

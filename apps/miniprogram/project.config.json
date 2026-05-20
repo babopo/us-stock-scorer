@@ -1,0 +1,13 @@
+{
+  "miniprogramRoot": "./",
+  "projectname": "us-stock-scorer",
+  "description": "Dual-horizon US stock scorer",
+  "appid": "touristappid",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "postcss": true,
+    "minified": false
+  },
+  "compileType": "miniprogram"
+}
