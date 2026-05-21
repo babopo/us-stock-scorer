@@ -17,6 +17,7 @@ us-stock-scorer/
     miniprogram/  # 微信小程序前端
     research/     # 本地研究脚本和回测实验
   packages/
+    api-client/   # 前端共享 API client、错误映射和 transport 适配
     shared/       # 前后端共享说明、枚举或 schema 文档
   docs/
     superpowers/
@@ -68,3 +69,16 @@ pytest -v
 Mini Program:
 
 Open `apps/miniprogram` in WeChat DevTools.
+
+小程序接口调用依赖共享 API client。首次打开或更新依赖后，在仓库根目录或小程序目录安装前端依赖，然后在微信开发者工具里执行“工具 -> 构建 npm”：
+
+```bash
+cd apps/miniprogram
+npm install
+```
+
+Shared JavaScript tests:
+
+```bash
+npm run test:js
+```

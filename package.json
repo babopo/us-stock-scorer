@@ -1,0 +1,12 @@
+{
+  "name": "us-stock-scorer",
+  "private": true,
+  "scripts": {
+    "test:js": "node --test packages/api-client/test/*.test.js apps/miniprogram/pages/index/*.test.js"
+  },
+  "workspaces": [
+    "apps/admin",
+    "apps/miniprogram",
+    "packages/*"
+  ]
+}

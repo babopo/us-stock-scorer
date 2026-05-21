@@ -1,0 +1,7 @@
+{
+  "name": "us-stock-scorer-miniprogram",
+  "private": true,
+  "dependencies": {
+    "@stock-scorer/api-client": "file:../../packages/api-client"
+  }
+}

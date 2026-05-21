@@ -1,5 +1,9 @@
 const app = getApp();
 const {
+  createMiniProgramApiClient,
+  getApiErrorMessage
+} = require("../../utils/api");
+const {
   buildRadarFactors,
   getNearestRadarIndex
 } = require("./factor-radar");
@@ -46,33 +50,24 @@ Page({
     }
 
     this.setData({ loading: true, error: "" });
-    wx.request({
-      url: `${app.globalData.apiBaseUrl}/v1/stocks/${ticker}/score`,
-      method: "GET",
-      success: (response) => {
-        if (response.statusCode === 200) {
-          this.setScore(response.data);
-          return;
-        }
+    const api = createMiniProgramApiClient(app.globalData.apiBaseUrl);
+
+    api
+      .getStockScore(ticker)
+      .then((score) => {
+        this.setScore(score);
+      })
+      .catch((error) => {
         this.setData({
           score: null,
           radarFactors: [],
           selectedFactor: null,
-          error: "没有找到这只股票的数据"
+          error: getApiErrorMessage(error)
         });
-      },
-      fail: () => {
-        this.setData({
-          score: null,
-          radarFactors: [],
-          selectedFactor: null,
-          error: "无法连接本地后端服务"
-        });
-      },
-      complete: () => {
+      })
+      .then(() => {
         this.setData({ loading: false });
-      }
-    });
+      });
   },
 
   updateSelectedFactor(index) {
