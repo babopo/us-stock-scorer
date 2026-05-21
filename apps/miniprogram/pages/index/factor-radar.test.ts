@@ -1,12 +1,13 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import type { FactorScore } from "@stock-scorer/api-client";
 
-const {
+import {
   buildRadarFactors,
   getNearestRadarIndex
-} = require("./factor-radar");
+} from "./factor-radar";
 
-const sampleFactors = [
+const sampleFactors: FactorScore[] = [
   { name: "质量/盈利", score: 90, evidence: ["ROIC 强"] },
   { name: "估值", score: 62, evidence: ["估值偏高"] },
   { name: "成长与预期", score: 84, evidence: ["EPS 稳定"] },
@@ -22,10 +23,15 @@ test("buildRadarFactors maps five factors to clockwise pentagon positions", () =
     factors.map((factor) => factor.percent),
     [90, 62, 84, 86, 78]
   );
-  assert.equal(factors[0].angleDeg, -90);
-  assert.equal(factors[1].angleDeg, -18);
-  assert.equal(factors[0].labelX, 50);
-  assert.ok(factors[0].labelY < 10);
+  const firstFactor = factors[0];
+  const secondFactor = factors[1];
+
+  assert.ok(firstFactor);
+  assert.ok(secondFactor);
+  assert.equal(firstFactor.angleDeg, -90);
+  assert.equal(secondFactor.angleDeg, -18);
+  assert.equal(firstFactor.labelX, 50);
+  assert.ok(firstFactor.labelY < 10);
 });
 
 test("getNearestRadarIndex selects the closest factor axis from a canvas tap", () => {

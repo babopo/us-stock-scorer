@@ -1,14 +1,82 @@
-const app = getApp();
-const {
-  createMiniProgramApiClient,
-  getApiErrorMessage
-} = require("../../utils/api");
-const {
-  buildRadarFactors,
-  getNearestRadarIndex
-} = require("./factor-radar");
+import type { StockScoreResponse } from "@stock-scorer/api-client";
 
-Page({
+import type { AppOption } from "../../app";
+import { createMiniProgramApiClient, getApiErrorMessage } from "../../utils/api";
+import {
+  buildRadarFactors,
+  getNearestRadarIndex,
+  type Point,
+  type RadarFactor,
+  type Size
+} from "./factor-radar";
+
+const app = getApp<AppOption>();
+
+interface RadarFrame {
+  size: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+interface CanvasRect extends Size {
+  left: number;
+  top: number;
+}
+
+interface IndexPageData {
+  ticker: string;
+  loading: boolean;
+  error: string;
+  score: StockScoreResponse | null;
+  radarFactors: RadarFactor[];
+  radarCanvasSize: Size | null;
+  selectedFactorIndex: number;
+  selectedFactor: RadarFactor | null;
+}
+
+interface TickerInputEvent {
+  detail: {
+    value: string;
+  };
+}
+
+interface DatasetIndexEvent {
+  currentTarget: {
+    dataset: {
+      index?: string | number;
+    };
+  };
+}
+
+interface RadarTapEvent {
+  detail?: {
+    x?: number;
+    y?: number;
+  };
+  touches?: Array<{
+    pageX: number;
+    pageY: number;
+  }>;
+}
+
+interface IndexPageMethods {
+  radarCanvasRect?: CanvasRect;
+  onTickerInput(event: TickerInputEvent): void;
+  setScore(score: StockScoreResponse): void;
+  fetchScore(): void;
+  updateSelectedFactor(index: string | number | undefined): void;
+  selectRadarFactor(event: DatasetIndexEvent): void;
+  onRadarTap(event: RadarTapEvent): void;
+  getRadarTapPoint(event: RadarTapEvent): Point;
+  playSelectionFeedback(): void;
+  drawRadarChart(): void;
+  paintRadar(ctx: WechatMiniprogram.CanvasContext, rect: Size): void;
+  getRadarChartFrame(size: Size): RadarFrame;
+  getShortFactorName(name: string): string;
+  drawPolygon(ctx: WechatMiniprogram.CanvasContext, points: readonly Point[]): void;
+}
+
+Page<IndexPageData, IndexPageMethods>({
   data: {
     ticker: "MSFT",
     loading: false,
@@ -25,7 +93,7 @@ Page({
   },
 
   setScore(score) {
-    const radarFactors = buildRadarFactors(score.factors || []);
+    const radarFactors = buildRadarFactors(score.factors);
     const selectedFactorIndex = radarFactors.length ? 0 : -1;
 
     this.setData(
@@ -119,7 +187,7 @@ Page({
   },
 
   getRadarTapPoint(event) {
-    if (event.detail && typeof event.detail.x === "number") {
+    if (event.detail && typeof event.detail.x === "number" && typeof event.detail.y === "number") {
       return {
         x: event.detail.x,
         y: event.detail.y
@@ -144,19 +212,24 @@ Page({
   },
 
   drawRadarChart() {
-    if (!this.data.radarFactors.length || !wx.createSelectorQuery) {
+    if (!this.data.radarFactors.length) {
       return;
     }
 
     wx.createSelectorQuery()
       .in(this)
       .select("#factorRadar")
-      .boundingClientRect((rect) => {
-        if (!rect) {
+      .boundingClientRect((rect: WechatMiniprogram.BoundingClientRectCallbackResult) => {
+        if (!rect || typeof rect.width !== "number" || typeof rect.height !== "number") {
           return;
         }
 
-        this.radarCanvasRect = rect;
+        this.radarCanvasRect = {
+          width: rect.width,
+          height: rect.height,
+          left: rect.left,
+          top: rect.top
+        };
         this.setData({
           radarCanvasSize: {
             width: rect.width,
@@ -176,7 +249,7 @@ Page({
     const frame = this.getRadarChartFrame({ width, height });
     const centerX = frame.offsetX + frame.size / 2;
     const centerY = frame.offsetY + frame.size / 2;
-    const toPixel = (xPercent, yPercent) => ({
+    const toPixel = (xPercent: number, yPercent: number): Point => ({
       x: frame.offsetX + (xPercent / 100) * frame.size,
       y: frame.offsetY + (yPercent / 100) * frame.size
     });

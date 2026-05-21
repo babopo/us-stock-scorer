@@ -1,17 +1,19 @@
-const {
+import type { StockScorerClient, WxRequestApi } from "@stock-scorer/api-client";
+
+import {
   createStockScorerClient,
   createWxTransport,
   isApiError
-} = require("@stock-scorer/api-client");
+} from "@stock-scorer/api-client";
 
-function createMiniProgramApiClient(baseUrl) {
+export function createMiniProgramApiClient(baseUrl: string): StockScorerClient {
   return createStockScorerClient({
     baseUrl,
-    transport: createWxTransport(wx)
+    transport: createWxTransport(wx as unknown as WxRequestApi)
   });
 }
 
-function getApiErrorMessage(error) {
+export function getApiErrorMessage(error: unknown): string {
   if (!isApiError(error)) {
     return "无法连接本地后端服务";
   }
@@ -30,8 +32,3 @@ function getApiErrorMessage(error) {
 
   return "请求后端服务失败，请稍后重试";
 }
-
-module.exports = {
-  createMiniProgramApiClient,
-  getApiErrorMessage
-};

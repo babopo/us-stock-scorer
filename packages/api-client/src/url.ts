@@ -1,10 +1,12 @@
-function joinUrl(baseUrl, path) {
+import type { QueryParams } from "./types";
+
+export function joinUrl(baseUrl: string, path: string): string {
   const cleanBaseUrl = String(baseUrl || "").replace(/\/+$/, "");
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
   return `${cleanBaseUrl}${cleanPath}`;
 }
 
-function appendQuery(url, query) {
+export function appendQuery(url: string, query?: QueryParams): string {
   const entries = Object.entries(query || {}).filter(([, value]) => value !== undefined && value !== null);
   if (!entries.length) {
     return url;
@@ -16,8 +18,3 @@ function appendQuery(url, query) {
 
   return `${url}${url.includes("?") ? "&" : "?"}${queryString}`;
 }
-
-module.exports = {
-  appendQuery,
-  joinUrl
-};

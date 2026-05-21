@@ -70,15 +70,16 @@ Mini Program:
 
 Open `apps/miniprogram` in WeChat DevTools.
 
-小程序接口调用依赖共享 API client。首次打开或更新依赖后，在仓库根目录或小程序目录安装前端依赖，然后在微信开发者工具里执行“工具 -> 构建 npm”：
+小程序源码使用 TypeScript，`project.config.json` 已启用微信开发者工具内置的 TypeScript 编译插件。接口调用依赖共享 API client；首次打开或更新依赖后，在仓库根目录安装前端依赖、编译共享 client，然后在微信开发者工具里执行“工具 -> 构建 npm”：
 
 ```bash
-cd apps/miniprogram
-npm install
+pnpm install
+pnpm build
 ```
 
-Shared JavaScript tests:
+Shared TypeScript checks and tests:
 
 ```bash
-npm run test:js
+pnpm typecheck
+pnpm test
 ```

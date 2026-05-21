@@ -1,25 +1,57 @@
-const { createApiError } = require("./errors");
-const { joinUrl } = require("./url");
+import { createApiError } from "./errors";
+import type {
+  ApiRequest,
+  ApiResponse,
+  HeaderMap,
+  HttpMethod,
+  QueryParams,
+  RefreshTickerResponse,
+  StockScorerClient,
+  StockScorerClientOptions,
+  StockScoreResponse
+} from "./types";
+import { joinUrl } from "./url";
 
 const DEFAULT_TIMEOUT_MS = 15000;
 
-function createStockScorerClient(options) {
+interface RequestOptions {
+  query?: QueryParams;
+  body?: unknown;
+}
+
+interface TransportResponse<T> {
+  status?: number;
+  statusCode?: number;
+  headers?: HeaderMap;
+  header?: HeaderMap;
+  data: T;
+}
+
+export function createStockScorerClient(options: StockScorerClientOptions): StockScorerClient {
   const { baseUrl = "", transport, headers = {}, timeoutMs = DEFAULT_TIMEOUT_MS } = options || {};
 
   if (typeof transport !== "function") {
     throw new TypeError("createStockScorerClient requires a transport function");
   }
 
-  async function request(method, path, requestOptions) {
+  async function request<T>(method: HttpMethod, path: string, requestOptions: RequestOptions = {}): Promise<T> {
+    const apiRequest: ApiRequest = {
+      method,
+      url: joinUrl(baseUrl, path),
+      headers,
+      timeoutMs
+    };
+
+    if (requestOptions.query) {
+      apiRequest.query = requestOptions.query;
+    }
+
+    if (requestOptions.body !== undefined) {
+      apiRequest.body = requestOptions.body;
+    }
+
     const response = normalizeResponse(
-      await transport({
-        method,
-        url: joinUrl(baseUrl, path),
-        query: requestOptions && requestOptions.query,
-        body: requestOptions && requestOptions.body,
-        headers,
-        timeoutMs
-      })
+      await transport<T>(apiRequest)
     );
 
     if (response.status < 200 || response.status >= 300) {
@@ -36,7 +68,7 @@ function createStockScorerClient(options) {
 
     getStockScore(ticker) {
       const normalizedTicker = normalizeTicker(ticker);
-      return request("GET", `/v1/stocks/${encodeURIComponent(normalizedTicker)}/score`);
+      return request<StockScoreResponse>("GET", `/v1/stocks/${encodeURIComponent(normalizedTicker)}/score`);
     },
 
     getProviderStatus() {
@@ -59,12 +91,12 @@ function createStockScorerClient(options) {
 
     refreshTicker(ticker) {
       const normalizedTicker = normalizeTicker(ticker);
-      return request("POST", `/v1/admin/stocks/${encodeURIComponent(normalizedTicker)}/refresh`);
+      return request<RefreshTickerResponse>("POST", `/v1/admin/stocks/${encodeURIComponent(normalizedTicker)}/refresh`);
     }
   };
 }
 
-function normalizeTicker(ticker) {
+export function normalizeTicker(ticker: string): string {
   const normalized = String(ticker || "").trim().toUpperCase();
   if (!normalized) {
     throw new TypeError("ticker is required");
@@ -72,12 +104,12 @@ function normalizeTicker(ticker) {
   return normalized;
 }
 
-function normalizeResponse(response) {
+export function normalizeResponse<T>(response: TransportResponse<T> | null | undefined): ApiResponse<T> & { headers: HeaderMap } {
   if (!response || typeof response !== "object") {
     throw new TypeError("transport returned an empty response");
   }
 
-  const status = response.status || response.statusCode;
+  const status = response.status ?? response.statusCode;
   if (typeof status !== "number") {
     throw new TypeError("transport response must include status");
   }
@@ -88,8 +120,3 @@ function normalizeResponse(response) {
     data: response.data
   };
 }
-
-module.exports = {
-  createStockScorerClient,
-  normalizeTicker
-};

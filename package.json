@@ -2,11 +2,19 @@
   "name": "us-stock-scorer",
   "private": true,
   "scripts": {
-    "test:js": "node --test packages/api-client/test/*.test.js apps/miniprogram/pages/index/*.test.js"
+    "build": "pnpm --filter @stock-scorer/api-client build",
+    "test": "pnpm build && node --import tsx --test packages/api-client/test/*.test.ts apps/miniprogram/pages/index/*.test.ts",
+    "typecheck": "tsc -b packages/api-client apps/miniprogram && tsc --noEmit -p packages/api-client/tsconfig.test.json"
   },
   "workspaces": [
     "apps/admin",
     "apps/miniprogram",
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "miniprogram-api-typings": "^5.2.1",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
+  }
 }

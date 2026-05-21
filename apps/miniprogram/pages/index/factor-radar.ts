@@ -1,8 +1,39 @@
+import type { FactorScore } from "@stock-scorer/api-client";
+
 const DEFAULT_CENTER = 50;
 const DEFAULT_RADIUS = 34;
 const DEFAULT_LABEL_RADIUS = 42;
 
-function clampScore(score) {
+export interface RadarOptions {
+  center?: number;
+  radius?: number;
+  labelRadius?: number;
+}
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface Size {
+  width: number;
+  height: number;
+}
+
+export interface RadarFactor extends FactorScore {
+  index: number;
+  percent: number;
+  angleDeg: number;
+  axisX: number;
+  axisY: number;
+  pointX: number;
+  pointY: number;
+  labelX: number;
+  labelY: number;
+  labelStyle: string;
+}
+
+function clampScore(score: number): number {
   const numericScore = Number(score);
   if (Number.isNaN(numericScore)) {
     return 0;
@@ -10,14 +41,14 @@ function clampScore(score) {
   return Math.min(100, Math.max(0, numericScore));
 }
 
-function round(value) {
+function round(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-function buildRadarFactors(factors = [], options = {}) {
-  const center = options.center || DEFAULT_CENTER;
-  const radius = options.radius || DEFAULT_RADIUS;
-  const labelRadius = options.labelRadius || DEFAULT_LABEL_RADIUS;
+export function buildRadarFactors(factors: readonly FactorScore[] = [], options: RadarOptions = {}): RadarFactor[] {
+  const center = options.center ?? DEFAULT_CENTER;
+  const radius = options.radius ?? DEFAULT_RADIUS;
+  const labelRadius = options.labelRadius ?? DEFAULT_LABEL_RADIUS;
   const count = factors.length || 1;
 
   return factors.map((factor, index) => {
@@ -47,7 +78,7 @@ function buildRadarFactors(factors = [], options = {}) {
   });
 }
 
-function getNearestRadarIndex(point, size, factors = []) {
+export function getNearestRadarIndex(point: Point | null | undefined, size: Size | null | undefined, factors: readonly RadarFactor[] = []): number {
   if (!point || !size || !size.width || !size.height || !factors.length) {
     return -1;
   }
@@ -69,8 +100,3 @@ function getNearestRadarIndex(point, size, factors = []) {
     { index: -1, distance: Number.POSITIVE_INFINITY }
   ).index;
 }
-
-module.exports = {
-  buildRadarFactors,
-  getNearestRadarIndex
-};
