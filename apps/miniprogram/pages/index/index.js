@@ -1,15 +1,41 @@
 const app = getApp();
+const {
+  buildRadarFactors,
+  getNearestRadarIndex
+} = require("./factor-radar");
 
 Page({
   data: {
     ticker: "MSFT",
     loading: false,
     error: "",
-    score: null
+    score: null,
+    radarFactors: [],
+    radarCanvasSize: null,
+    selectedFactorIndex: 0,
+    selectedFactor: null
   },
 
   onTickerInput(event) {
     this.setData({ ticker: event.detail.value.toUpperCase(), error: "" });
+  },
+
+  setScore(score) {
+    const radarFactors = buildRadarFactors(score.factors || []);
+    const selectedFactorIndex = radarFactors.length ? 0 : -1;
+
+    this.setData(
+      {
+        score,
+        radarFactors,
+        selectedFactorIndex,
+        selectedFactor: radarFactors[selectedFactorIndex] || null,
+        error: ""
+      },
+      () => {
+        this.drawRadarChart();
+      }
+    );
   },
 
   fetchScore() {
@@ -25,13 +51,23 @@ Page({
       method: "GET",
       success: (response) => {
         if (response.statusCode === 200) {
-          this.setData({ score: response.data, error: "" });
+          this.setScore(response.data);
           return;
         }
-        this.setData({ score: null, error: "没有找到这只股票的数据" });
+        this.setData({
+          score: null,
+          radarFactors: [],
+          selectedFactor: null,
+          error: "没有找到这只股票的数据"
+        });
       },
       fail: () => {
-        this.setData({ score: null, error: "无法连接本地后端服务" });
+        this.setData({
+          score: null,
+          radarFactors: [],
+          selectedFactor: null,
+          error: "无法连接本地后端服务"
+        });
       },
       complete: () => {
         this.setData({ loading: false });
@@ -39,7 +75,257 @@ Page({
     });
   },
 
+  updateSelectedFactor(index) {
+    const nextIndex = Number(index);
+    const selectedFactor = this.data.radarFactors[nextIndex];
+    if (!selectedFactor) {
+      return;
+    }
+
+    const shouldPlayFeedback = nextIndex !== this.data.selectedFactorIndex;
+    this.setData(
+      {
+        selectedFactorIndex: nextIndex,
+        selectedFactor
+      },
+      () => {
+        this.drawRadarChart();
+        if (shouldPlayFeedback) {
+          this.playSelectionFeedback();
+        }
+      }
+    );
+  },
+
+  selectRadarFactor(event) {
+    this.updateSelectedFactor(event.currentTarget.dataset.index);
+  },
+
+  onRadarTap(event) {
+    const size = this.data.radarCanvasSize;
+    if (!size) {
+      return;
+    }
+
+    const point = this.getRadarTapPoint(event);
+    const frame = this.getRadarChartFrame(size);
+    const index = getNearestRadarIndex(
+      {
+        x: point.x - frame.offsetX,
+        y: point.y - frame.offsetY
+      },
+      {
+        width: frame.size,
+        height: frame.size
+      },
+      this.data.radarFactors
+    );
+    this.updateSelectedFactor(index);
+  },
+
+  getRadarTapPoint(event) {
+    if (event.detail && typeof event.detail.x === "number") {
+      return {
+        x: event.detail.x,
+        y: event.detail.y
+      };
+    }
+
+    const touch = event.touches && event.touches[0];
+    if (touch && this.radarCanvasRect) {
+      return {
+        x: touch.pageX - this.radarCanvasRect.left,
+        y: touch.pageY - this.radarCanvasRect.top
+      };
+    }
+
+    return { x: 0, y: 0 };
+  },
+
+  playSelectionFeedback() {
+    if (wx.vibrateShort) {
+      wx.vibrateShort({ type: "light", fail: () => {} });
+    }
+  },
+
+  drawRadarChart() {
+    if (!this.data.radarFactors.length || !wx.createSelectorQuery) {
+      return;
+    }
+
+    wx.createSelectorQuery()
+      .in(this)
+      .select("#factorRadar")
+      .boundingClientRect((rect) => {
+        if (!rect) {
+          return;
+        }
+
+        this.radarCanvasRect = rect;
+        this.setData({
+          radarCanvasSize: {
+            width: rect.width,
+            height: rect.height
+          }
+        });
+        this.paintRadar(wx.createCanvasContext("factorRadar", this), rect);
+      })
+      .exec();
+  },
+
+  paintRadar(ctx, rect) {
+    const factors = this.data.radarFactors;
+    const selectedIndex = this.data.selectedFactorIndex;
+    const width = rect.width;
+    const height = rect.height;
+    const frame = this.getRadarChartFrame({ width, height });
+    const centerX = frame.offsetX + frame.size / 2;
+    const centerY = frame.offsetY + frame.size / 2;
+    const toPixel = (xPercent, yPercent) => ({
+      x: frame.offsetX + (xPercent / 100) * frame.size,
+      y: frame.offsetY + (yPercent / 100) * frame.size
+    });
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.setLineJoin("round");
+    ctx.setLineCap("round");
+
+    [0.25, 0.5, 0.75, 1].forEach((level) => {
+      const points = factors.map((factor) => {
+        const axis = toPixel(factor.axisX, factor.axisY);
+        return {
+          x: centerX + (axis.x - centerX) * level,
+          y: centerY + (axis.y - centerY) * level
+        };
+      });
+
+      this.drawPolygon(ctx, points);
+      ctx.setStrokeStyle(level === 1 ? "rgba(251, 191, 36, 0.52)" : "rgba(148, 163, 184, 0.24)");
+      ctx.setLineWidth(level === 1 ? 1.4 : 1);
+      ctx.stroke();
+    });
+
+    factors.forEach((factor) => {
+      const axis = toPixel(factor.axisX, factor.axisY);
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.lineTo(axis.x, axis.y);
+      ctx.setStrokeStyle("rgba(148, 163, 184, 0.22)");
+      ctx.setLineWidth(1);
+      ctx.stroke();
+    });
+
+    const scorePoints = factors.map((factor) => ({
+      ...toPixel(factor.pointX, factor.pointY)
+    }));
+
+    this.drawPolygon(ctx, scorePoints);
+    ctx.setFillStyle("rgba(245, 158, 11, 0.22)");
+    ctx.fill();
+    ctx.setStrokeStyle("#f59e0b");
+    ctx.setLineWidth(2.4);
+    ctx.stroke();
+
+    scorePoints.forEach((point, index) => {
+      const isSelected = index === selectedIndex;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, isSelected ? 5.5 : 3.5, 0, Math.PI * 2);
+      ctx.setFillStyle(isSelected ? "#fbbf24" : "#38bdf8");
+      ctx.fill();
+
+      if (isSelected) {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 10, 0, Math.PI * 2);
+        ctx.setStrokeStyle("rgba(251, 191, 36, 0.48)");
+        ctx.setLineWidth(2);
+        ctx.stroke();
+      }
+    });
+
+    factors.forEach((factor, index) => {
+      const label = toPixel(factor.labelX, factor.labelY);
+      const isSelected = index === selectedIndex;
+      ctx.setTextAlign("center");
+      ctx.setTextBaseline("middle");
+      ctx.setFontSize(isSelected ? 12 : 11);
+      ctx.setFillStyle(isSelected ? "#fbbf24" : "#cbd5e1");
+      ctx.fillText(this.getShortFactorName(factor.name), label.x, label.y - 6);
+      ctx.setFontSize(10);
+      ctx.setFillStyle(isSelected ? "#fde68a" : "#94a3b8");
+      ctx.fillText(String(factor.score), label.x, label.y + 9);
+    });
+
+    if (this.data.selectedFactor) {
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 30, 0, Math.PI * 2);
+      ctx.setFillStyle("rgba(2, 6, 23, 0.86)");
+      ctx.fill();
+      ctx.setStrokeStyle("rgba(56, 189, 248, 0.32)");
+      ctx.setLineWidth(1.2);
+      ctx.stroke();
+
+      ctx.setTextAlign("center");
+      ctx.setTextBaseline("middle");
+      ctx.setFillStyle("#fbbf24");
+      ctx.setFontSize(22);
+      ctx.fillText(String(this.data.selectedFactor.score), centerX, centerY - 6);
+      ctx.setFillStyle("#94a3b8");
+      ctx.setFontSize(10);
+      ctx.fillText("当前维度", centerX, centerY + 17);
+    }
+
+    ctx.draw();
+  },
+
+  getRadarChartFrame(size) {
+    const chartSize = Math.min(size.width, size.height);
+    return {
+      size: chartSize,
+      offsetX: (size.width - chartSize) / 2,
+      offsetY: (size.height - chartSize) / 2
+    };
+  },
+
+  getShortFactorName(name) {
+    if (name.indexOf("质量") !== -1) {
+      return "质量";
+    }
+    if (name.indexOf("估值") !== -1) {
+      return "估值";
+    }
+    if (name.indexOf("成长") !== -1) {
+      return "成长";
+    }
+    if (name.indexOf("投资") !== -1 || name.indexOf("稳健") !== -1) {
+      return "纪律";
+    }
+    if (name.indexOf("动量") !== -1 || name.indexOf("风险") !== -1) {
+      return "动量";
+    }
+    return name.slice(0, 4);
+  },
+
+  drawPolygon(ctx, points) {
+    if (!points.length) {
+      return;
+    }
+
+    ctx.beginPath();
+    points.forEach((point, index) => {
+      if (index === 0) {
+        ctx.moveTo(point.x, point.y);
+        return;
+      }
+      ctx.lineTo(point.x, point.y);
+    });
+    ctx.closePath();
+  },
+
   onLoad() {
     this.fetchScore();
+  },
+
+  onReady() {
+    this.drawRadarChart();
   }
 });

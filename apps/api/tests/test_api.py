@@ -29,3 +29,23 @@ def test_unknown_stock_score_endpoint_returns_404():
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Ticker not found: UNKNOWN"
+
+
+def test_stock_score_endpoint_returns_503_when_real_provider_is_missing_key(monkeypatch):
+    monkeypatch.setenv("STOCK_SCORER_DATA_SOURCE", "alpha_vantage")
+    monkeypatch.delenv("ALPHA_VANTAGE_API_KEY", raising=False)
+
+    response = client.get("/v1/stocks/MSFT/score")
+
+    assert response.status_code == 503
+    assert "ALPHA_VANTAGE_API_KEY" in response.json()["detail"]
+
+
+def test_stock_score_endpoint_returns_503_when_fmp_provider_is_missing_key(monkeypatch):
+    monkeypatch.setenv("STOCK_SCORER_DATA_SOURCE", "fmp")
+    monkeypatch.delenv("FMP_API_KEY", raising=False)
+
+    response = client.get("/v1/stocks/MSFT/score")
+
+    assert response.status_code == 503
+    assert "FMP_API_KEY" in response.json()["detail"]

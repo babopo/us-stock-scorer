@@ -1,7 +1,14 @@
 from fastapi import FastAPI, HTTPException
 
-from stock_scorer.fixtures import get_stock_score
+from stock_scorer.market_data import (
+    MarketDataConfigurationError,
+    MarketDataError,
+    MarketDataNotFound,
+    MarketDataRateLimited,
+    MarketDataUnavailable,
+)
 from stock_scorer.models import StockScoreResponse
+from stock_scorer.score_service import get_stock_score
 
 
 app = FastAPI(title="US Stock Scorer API", version="0.1.0")
@@ -17,5 +24,9 @@ def stock_score(ticker: str) -> StockScoreResponse:
     normalized = ticker.upper()
     try:
         return get_stock_score(normalized)
-    except KeyError as exc:
+    except (KeyError, MarketDataNotFound) as exc:
         raise HTTPException(status_code=404, detail=f"Ticker not found: {normalized}") from exc
+    except (MarketDataConfigurationError, MarketDataRateLimited) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except (MarketDataUnavailable, MarketDataError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc

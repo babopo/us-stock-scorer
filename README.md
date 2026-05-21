@@ -34,14 +34,34 @@ Backend:
 
 ```bash
 cd apps/api
+python3 -m venv .venv
+. .venv/bin/activate
 python -m pip install -e ".[dev]"
 uvicorn stock_scorer.app:app --reload --port 8000
+```
+
+默认使用 fixture 数据。接入真实美股数据时，推荐先申请 Financial Modeling Prep API key，然后启动前配置：
+
+```bash
+export STOCK_SCORER_DATA_SOURCE=fmp
+export FMP_API_KEY=your_api_key
+uvicorn stock_scorer.app:app --reload --port 8000
+```
+
+当前 FMP 接入会拉取 `quote`、`historical-price-eod/full`、`profile` 和 `income-statement`，用 EOD 日线、公司 profile、利润率和增长代理生成第一阶段评分。没有 key、触发限流或上游不可用时，API 会返回 503/502，并保留 fixture 作为默认开发模式。
+
+Alpha Vantage 仍作为备用数据源保留：
+
+```bash
+export STOCK_SCORER_DATA_SOURCE=alpha_vantage
+export ALPHA_VANTAGE_API_KEY=your_api_key
 ```
 
 Tests:
 
 ```bash
 cd apps/api
+. .venv/bin/activate
 pytest -v
 ```
 

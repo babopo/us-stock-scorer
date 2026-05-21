@@ -52,3 +52,4 @@ class StockScoreResponse(BaseModel):
     factors: list[FactorScore]
     decision: Decision
     data_as_of: str
+    data_source: str = "fixture"
