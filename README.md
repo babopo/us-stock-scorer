@@ -14,6 +14,7 @@
 us-stock-scorer/
   apps/
     api/          # FastAPI backend, scoring engine, tests
+    admin/        # React/Vite web admin for scoring and provider debugging
     miniprogram/  # 微信小程序前端
     research/     # 本地研究脚本和回测实验
   packages/
@@ -27,7 +28,15 @@ us-stock-scorer/
 
 ## Current Status
 
-当前 MVP 包含基于 fixture 数据的后端评分 API 和微信小程序页面。下一阶段是接入真实行情/财报数据，并保存每日评分快照用于回测。
+当前 MVP 已包含：
+
+- FastAPI 后端评分 API，默认使用 fixture 数据，也支持 FMP 和 Alpha Vantage 数据源配置。
+- 共享 TypeScript API client，统一封装 `fetch` 和微信小程序 `wx.request` transport、ticker 规范化和错误映射。
+- 微信小程序页面，用共享 client 查询评分并渲染双周期判断、因子雷达和行动建议。
+- React/Vite Web 管理后台，用于本地评分调试、数据源状态检查、fixture 原始数据查看和单只 ticker 刷新。
+- 管理端 FastAPI 接口：`/v1/admin/providers/status`、`/v1/admin/stocks/{ticker}/raw-data`、`/v1/admin/stocks/{ticker}/refresh`。
+
+下一阶段重点是管理端鉴权、真实数据源的原始数据排查能力、每日评分快照落库和服务器部署文档。
 
 ## Local Development
 
@@ -39,6 +48,12 @@ python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -e ".[dev]"
 uvicorn stock_scorer.app:app --reload --port 8000
+```
+
+本地 Web 管理后台默认请求 `http://127.0.0.1:8000`。如果端口或域名不同，可以设置：
+
+```bash
+export ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
 
 默认使用 fixture 数据。接入真实美股数据时，推荐先申请 Financial Modeling Prep API key，然后启动前配置：
@@ -66,6 +81,22 @@ cd apps/api
 pytest -v
 ```
 
+Web Admin:
+
+```bash
+pnpm install
+pnpm --filter @stock-scorer/admin dev
+```
+
+可选环境变量：
+
+```bash
+export VITE_API_BASE_URL=http://127.0.0.1:8000
+export VITE_ADMIN_AUTH_TOKEN=local-dev-token
+```
+
+当前后端还没有强制校验 `VITE_ADMIN_AUTH_TOKEN`，该变量用于预留管理端鉴权 header。
+
 Mini Program:
 
 Open `apps/miniprogram` in WeChat DevTools.
@@ -80,6 +111,18 @@ pnpm build
 Shared TypeScript checks and tests:
 
 ```bash
+pnpm typecheck
+pnpm test
+```
+
+完整本地验证建议：
+
+```bash
+cd apps/api
+. .venv/bin/activate
+pytest -v
+
+cd ../..
 pnpm typecheck
 pnpm test
 ```

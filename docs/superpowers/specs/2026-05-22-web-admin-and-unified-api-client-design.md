@@ -2,15 +2,35 @@
 
 日期：2026-05-22
 
+## 当前实现状态
+
+截至 2026-05-22，仓库已经完成第一版 Web 管理后台和统一 API client 的主要骨架：
+
+- `packages/api-client` 已提供 TypeScript client、`fetch` transport、`wx.request` transport、ticker 规范化和错误映射。
+- `apps/miniprogram` 已迁移到 TypeScript，并通过共享 client 调用后端评分接口。
+- `apps/admin` 已使用 Vite、React、TypeScript 和 TanStack Query 建立本地后台，首屏包含评分调试、数据源状态和运维操作区域。
+- `apps/api` 已增加 CORS 配置和第一批管理端接口：provider status、fixture raw data、ticker refresh。
+- 根目录 `pnpm build`、`pnpm typecheck`、`pnpm test` 已纳入 `apps/admin`。
+
+仍未完成的部分：
+
+- 管理端 token 校验尚未在 FastAPI 中强制执行。
+- OpenAPI 类型生成脚本还未接入，当前 client 类型仍为手写维护。
+- `/v1/admin/stocks/{ticker}/snapshots`、jobs 查询、批量刷新和评分快照落库尚未实现。
+- 真实数据源的 raw-data 排查接口尚未开放，目前 raw-data 只支持 fixture 数据源。
+- 服务器部署、反向代理和生产鉴权文档仍待补充。
+
 ## 背景
 
 当前 monorepo 已有：
 
 - `apps/api`：FastAPI 后端，提供评分接口和行情数据源封装。
-- `apps/miniprogram`：微信小程序，页面内直接使用 `wx.request` 调用后端。
+- `apps/miniprogram`：微信小程序，通过共享 API client 和 `wx.request` transport 调用后端。
+- `apps/admin`：React/Vite Web 管理后台，用于本地调试评分、数据源状态和管理端接口。
+- `packages/api-client`：前端共享 API client、类型、错误映射和 transport 适配。
 - `packages/shared`：共享 schema / enum 说明占位。
 
-后续如果增加 Web 管理后台，用于调试后端 API、查询行情和运维信息，不能让小程序和后台各自手写接口路径、错误处理、鉴权和返回值解析。否则后端接口稍有调整，两端都要改一遍，且行为容易不一致。
+增加 Web 管理后台后，小程序和后台不能各自手写接口路径、错误处理、鉴权和返回值解析。否则后端接口稍有调整，两端都要改一遍，且行为容易不一致。
 
 ## 目标
 
@@ -101,7 +121,7 @@ us-stock-scorer/
 
 ### Client 对外形态
 
-小程序和 Web 后台都只面向同一个 client：
+小程序和 Web 后台都只面向同一个 client。当前已实现 `getHealth()`、`getStockScore()`、`getProviderStatus()`、`getTickerRawData()`、`getScoreSnapshots()` 和 `refreshTicker()` 方法，其中 `getScoreSnapshots()` 的后端接口仍待实现。
 
 ```ts
 const client = createStockScorerClient({
@@ -113,7 +133,7 @@ const score = await client.getStockScore("MSFT");
 const health = await client.getHealth();
 ```
 
-第一版建议提供这些方法：
+client 方法清单：
 
 - `getHealth()`
 - `getStockScore(ticker)`
@@ -122,7 +142,7 @@ const health = await client.getHealth();
 - `getScoreSnapshot(ticker, date?)`
 - `refreshTicker(ticker)`
 
-其中前两个是现有消费端可用接口，后四个是管理后台优先使用的运维接口。
+其中前两个是消费端可用接口，其余方法是管理后台优先使用的运维接口。
 
 ### Transport 接口
 
@@ -251,22 +271,21 @@ apps/admin/src/
     client.ts
 ```
 
-第一版后台页面：
+第一版后台页面当前采用单页工作台结构：
 
 1. 评分调试页
    - 输入 ticker。
    - 展示 `getStockScore` 原始响应、格式化评分、因子证据、触发条件、失效条件。
-   - 显示请求耗时、HTTP 状态、数据源、`data_as_of`。
+   - 显示后端返回的评分、标签、行动建议、因子和 `data_as_of`。
 
 2. 数据源状态页
    - 当前 `STOCK_SCORER_DATA_SOURCE`。
    - API key 是否配置，只显示 configured / missing，不显示真实 key。
-   - 最近一次上游错误。
    - 简单健康检查。
 
 3. 原始数据查询页
-   - 查询某个 ticker 的 quote、profile、income statement、历史价格摘要。
-   - 用于排查评分异常。
+   - 当前仅支持 fixture 数据源，返回 fixture 原始 ticker payload。
+   - 真实数据源的 quote、profile、income statement、历史价格摘要排查仍待实现。
 
 4. 评分快照页
    - 后续落库后展示每日评分历史。
@@ -366,11 +385,12 @@ FastAPI 侧职责：
 
 ## 本地开发流程
 
-建议 root 后续增加 `pnpm-workspace.yaml`：
+root 已包含 `pnpm-workspace.yaml`：
 
 ```yaml
 packages:
   - "apps/admin"
+  - "apps/miniprogram"
   - "packages/*"
 ```
 
@@ -385,11 +405,13 @@ uvicorn stock_scorer.app:app --reload --port 8000
 pnpm --filter @stock-scorer/admin dev
 ```
 
-小程序仍然用微信开发者工具打开 `apps/miniprogram`，但请求代码改成共享 client。
+小程序仍然用微信开发者工具打开 `apps/miniprogram`，请求代码已经改成共享 client。
 
 ## 迁移步骤
 
 ### 阶段 1：建立共享 API client
+
+状态：已完成。
 
 1. 新增 root `pnpm-workspace.yaml` 和 `package.json`。
 2. 新增 `packages/api-client`。
@@ -399,28 +421,37 @@ pnpm --filter @stock-scorer/admin dev
 
 ### 阶段 2：改造小程序调用层
 
-1. 新增 `apps/miniprogram/utils/api.js`。
+状态：已完成，并已迁移到 TypeScript。
+
+1. 新增 `apps/miniprogram/utils/api.ts`。
 2. 页面从直接 `wx.request` 改为调用共享 client。
 3. 页面只处理 loading、成功渲染、`ApiError.code` 到中文文案的映射。
 
 ### 阶段 3：增加管理后台骨架
 
+状态：已完成第一版。
+
 1. 新增 `apps/admin`。
 2. 接入 `packages/api-client` 的 fetch transport。
-3. 完成评分调试页和数据源状态页。
+3. 完成评分调试、数据源状态和操作面板。
 4. 本地跑通 API + Admin。
 
 ### 阶段 4：增加管理端后端接口
 
-1. 新增 `admin_routes.py` 和 `admin_models.py`。
-2. 加 `/v1/admin/providers/status`。
-3. 加 `/v1/admin/stocks/{ticker}/raw-data`。
-4. 对管理端接口加 token 校验和测试。
+状态：部分完成。
+
+1. 已新增 `admin_models.py`，当前路由仍在 `app.py` 中。
+2. 已加 `/v1/admin/providers/status`。
+3. 已加 `/v1/admin/stocks/{ticker}/raw-data`，当前只支持 fixture 数据源。
+4. 已加 `/v1/admin/stocks/{ticker}/refresh`，当前复用同步评分管线。
+5. token 校验仍待实现。
 
 ### 阶段 5：服务器部署准备
 
-1. 增加 `.env.example` 配置项。
-2. 增加 CORS 配置。
+状态：部分完成。
+
+1. 已有 `.env.example`，仍需补齐 admin 相关配置项。
+2. 已增加 CORS 配置。
 3. 增加 Dockerfile / compose 或 systemd 文档。
 4. 增加 Caddy / Nginx 示例。
 

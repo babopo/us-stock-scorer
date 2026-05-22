@@ -43,3 +43,11 @@ def get_stock_score(ticker: str) -> StockScoreResponse:
         decision=decision,
         data_as_of=row["data_as_of"],
     )
+
+
+def get_raw_fixture_stock(ticker: str) -> dict[str, Any]:
+    normalized = ticker.upper()
+    data = load_fixture_data()
+    if normalized not in data:
+        raise KeyError(f"Ticker not found in fixture data: {normalized}")
+    return dict(data[normalized])
