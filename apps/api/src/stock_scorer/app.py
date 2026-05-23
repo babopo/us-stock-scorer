@@ -1,13 +1,25 @@
 import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 
 from stock_scorer.admin_models import (
     ProviderHealth,
     ProviderStatusResponse,
     RawTickerDataResponse,
     RefreshTickerResponse,
+)
+from stock_scorer.auth import (
+    AdminLoginRequest,
+    AdminLoginResponse,
+    AdminLogoutResponse,
+    AdminSessionResponse,
+    get_admin_session,
+    login_admin,
+    logout_admin,
+    require_admin_access,
+    require_read_access,
 )
 from stock_scorer.fixtures import get_raw_fixture_stock
 from stock_scorer.market_data import (
@@ -21,7 +33,7 @@ from stock_scorer.models import StockScoreResponse
 from stock_scorer.score_service import get_active_source_label, get_configured_data_sources, get_stock_score
 
 
-app = FastAPI(title="US Stock Scorer API", version="0.1.0")
+app = FastAPI(title="US Stock Scorer API", version="0.1.0", docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -40,7 +52,37 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/v1/stocks/{ticker}/score", response_model=StockScoreResponse)
+@app.get("/openapi.json", include_in_schema=False, dependencies=[Depends(require_admin_access)])
+def openapi_schema() -> dict[str, object]:
+    return app.openapi()
+
+
+@app.get("/docs", include_in_schema=False, dependencies=[Depends(require_admin_access)])
+def swagger_docs():
+    return get_swagger_ui_html(openapi_url="/openapi.json", title=f"{app.title} - Swagger UI")
+
+
+@app.get("/redoc", include_in_schema=False, dependencies=[Depends(require_admin_access)])
+def redoc_docs():
+    return get_redoc_html(openapi_url="/openapi.json", title=f"{app.title} - ReDoc")
+
+
+@app.post("/v1/admin/auth/login", response_model=AdminLoginResponse)
+def admin_login(payload: AdminLoginRequest) -> AdminLoginResponse:
+    return login_admin(payload)
+
+
+@app.get("/v1/admin/auth/session", response_model=AdminSessionResponse)
+def admin_session(session: AdminSessionResponse = Depends(get_admin_session)) -> AdminSessionResponse:
+    return session
+
+
+@app.post("/v1/admin/auth/logout", response_model=AdminLogoutResponse)
+def admin_logout(logout: AdminLogoutResponse = Depends(logout_admin)) -> AdminLogoutResponse:
+    return logout
+
+
+@app.get("/v1/stocks/{ticker}/score", response_model=StockScoreResponse, dependencies=[Depends(require_read_access)])
 def stock_score(ticker: str) -> StockScoreResponse:
     normalized = ticker.upper()
     try:
@@ -53,7 +95,7 @@ def stock_score(ticker: str) -> StockScoreResponse:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-@app.get("/v1/admin/providers/status", response_model=ProviderStatusResponse)
+@app.get("/v1/admin/providers/status", response_model=ProviderStatusResponse, dependencies=[Depends(require_admin_access)])
 def admin_provider_status() -> ProviderStatusResponse:
     active_source = get_active_source_label()
     active_sources = set(get_configured_data_sources())
@@ -80,7 +122,7 @@ def admin_provider_status() -> ProviderStatusResponse:
     )
 
 
-@app.get("/v1/admin/stocks/{ticker}/raw-data", response_model=RawTickerDataResponse)
+@app.get("/v1/admin/stocks/{ticker}/raw-data", response_model=RawTickerDataResponse, dependencies=[Depends(require_admin_access)])
 def admin_ticker_raw_data(ticker: str) -> RawTickerDataResponse:
     normalized = ticker.upper()
     source = os.getenv("STOCK_SCORER_DATA_SOURCE", "fixture").strip().lower() or "fixture"
@@ -95,7 +137,7 @@ def admin_ticker_raw_data(ticker: str) -> RawTickerDataResponse:
     return RawTickerDataResponse(ticker=normalized, source="fixture", raw=raw)
 
 
-@app.post("/v1/admin/stocks/{ticker}/refresh", response_model=RefreshTickerResponse)
+@app.post("/v1/admin/stocks/{ticker}/refresh", response_model=RefreshTickerResponse, dependencies=[Depends(require_admin_access)])
 def admin_refresh_ticker(ticker: str) -> RefreshTickerResponse:
     normalized = ticker.upper()
     return RefreshTickerResponse(ticker=normalized, status="completed", score=stock_score(normalized))

@@ -6,6 +6,9 @@ export type { FetchLike } from "./transports/fetch";
 export type { WxRequestApi } from "./transports/wx";
 export type {
   ActionDecision,
+  AdminLoginResponse,
+  AdminLogoutResponse,
+  AdminSessionResponse,
   ApiErrorCode,
   ApiErrorOptions,
   ApiRequest,

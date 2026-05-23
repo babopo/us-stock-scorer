@@ -1,5 +1,8 @@
 import { createApiError } from "./errors";
 import type {
+  AdminLoginResponse,
+  AdminLogoutResponse,
+  AdminSessionResponse,
   ApiRequest,
   ApiResponse,
   HeaderMap,
@@ -92,6 +95,23 @@ export function createStockScorerClient(options: StockScorerClientOptions): Stoc
     refreshTicker(ticker) {
       const normalizedTicker = normalizeTicker(ticker);
       return request<RefreshTickerResponse>("POST", `/v1/admin/stocks/${encodeURIComponent(normalizedTicker)}/refresh`);
+    },
+
+    loginAdmin(username, password) {
+      return request<AdminLoginResponse>("POST", "/v1/admin/auth/login", {
+        body: {
+          username,
+          password
+        }
+      });
+    },
+
+    getAdminSession() {
+      return request<AdminSessionResponse>("GET", "/v1/admin/auth/session");
+    },
+
+    logoutAdmin() {
+      return request<AdminLogoutResponse>("POST", "/v1/admin/auth/logout");
     }
   };
 }

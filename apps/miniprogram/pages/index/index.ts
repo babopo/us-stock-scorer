@@ -118,7 +118,7 @@ Page<IndexPageData, IndexPageMethods>({
     }
 
     this.setData({ loading: true, error: "" });
-    const api = createMiniProgramApiClient(app.globalData.apiBaseUrl);
+    const api = createMiniProgramApiClient(app.globalData.apiBaseUrl, app.globalData.apiReadToken);
 
     api
       .getStockScore(ticker)

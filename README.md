@@ -36,7 +36,8 @@ us-stock-scorer/
 - React/Vite Web 管理后台，用于本地评分调试、数据源状态检查、fixture 原始数据查看和单只 ticker 刷新。
 - 管理端 FastAPI 接口：`/v1/admin/providers/status`、`/v1/admin/stocks/{ticker}/raw-data`、`/v1/admin/stocks/{ticker}/refresh`。
 
-下一阶段重点是管理端鉴权、真实数据源的原始数据排查能力、每日评分快照落库和服务器部署文档。
+下一阶段重点是真实数据源的原始数据排查能力、每日评分快照落库和更完整的服务器部署文档。
+当前服务端已经要求所有 `/v1` 业务接口携带 Bearer token；`/health` 保持公开用于健康检查。
 
 ## Local Development
 
@@ -55,6 +56,19 @@ uvicorn stock_scorer.app:app --reload --port 8000
 ```bash
 export ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
+
+本地启动受保护接口前，至少配置只读 token 和 Admin 登录账号：
+
+```bash
+export STOCK_SCORER_READ_TOKEN=wxlogin
+export ADMIN_USERNAME=admin
+export ADMIN_PASSWORD=change-me
+export ADMIN_SESSION_TTL_SECONDS=43200
+```
+
+调试阶段后端默认只读 token 也是 `wxlogin`；上线前应改成动态登录或至少替换为长随机 token。
+
+`ADMIN_AUTH_TOKEN` 是可选的静态管理员 Bearer token，适合脚本或过渡期运维调用；Web 管理后台会使用用户名密码登录后拿到短期 session token。
 
 默认使用 fixture 数据。接入真实美股数据时，推荐先申请 Financial Modeling Prep API key，然后启动前配置：
 
@@ -104,14 +118,15 @@ pnpm --filter @stock-scorer/admin dev
 
 ```bash
 export VITE_API_BASE_URL=http://127.0.0.1:8000
-export VITE_ADMIN_AUTH_TOKEN=local-dev-token
 ```
 
-当前后端还没有强制校验 `VITE_ADMIN_AUTH_TOKEN`，该变量用于预留管理端鉴权 header。
+打开管理后台后使用 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 登录。生产环境不要把长期 Admin token 打进前端静态包。
 
 Mini Program:
 
 Open `apps/miniprogram` in WeChat DevTools.
+
+小程序访问评分接口时需要只读 Bearer token。当前调试版 `apps/miniprogram/app.ts` 的 `apiReadToken` 默认是 `wxlogin`，与后端默认 `STOCK_SCORER_READ_TOKEN` 一致；这只能阻止随意裸调，不等于强用户身份认证。未来如果给多人使用，应升级为客户端登录或第三方身份服务。
 
 小程序源码使用 TypeScript，`project.config.json` 已启用微信开发者工具内置的 TypeScript 编译插件。接口调用依赖共享 API client；首次打开或更新依赖后，在仓库根目录安装前端依赖、编译共享 client，然后在微信开发者工具里执行“工具 -> 构建 npm”：
 

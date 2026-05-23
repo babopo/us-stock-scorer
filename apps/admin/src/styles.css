@@ -59,6 +59,12 @@ summary {
   gap: 8px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .topbar a {
   color: #cbd5e1;
   text-decoration: none;
@@ -162,7 +168,9 @@ summary:focus-visible {
 }
 
 .ticker-form button,
-.icon-button {
+.icon-button,
+.logout-button,
+.login-form button {
   color: #111827;
   background: #f59e0b;
   border: 1px solid #fbbf24;
@@ -173,12 +181,15 @@ summary:focus-visible {
 }
 
 .ticker-form button:hover,
-.icon-button:hover {
+.icon-button:hover,
+.logout-button:hover,
+.login-form button:hover {
   background: #fbbf24;
   transform: translateY(-1px);
 }
 
-.ticker-form button:disabled {
+.ticker-form button:disabled,
+.login-form button:disabled {
   cursor: wait;
   opacity: 0.72;
   transform: none;
@@ -188,6 +199,60 @@ summary:focus-visible {
   width: 42px;
   justify-content: center;
   padding: 0;
+}
+
+.logout-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+.login-shell {
+  display: grid;
+  place-items: center;
+}
+
+.login-panel {
+  width: min(100%, 440px);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.82);
+  padding: 22px;
+}
+
+.login-form {
+  display: grid;
+  gap: 10px;
+}
+
+.login-form label {
+  color: #cbd5e1;
+  font-weight: 700;
+}
+
+.login-form input {
+  width: 100%;
+  color: #f8fafc;
+  background: #111827;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  padding: 10px 11px;
+}
+
+.login-form input:focus {
+  border-color: #fbbf24;
+  outline: 2px solid rgba(245, 158, 11, 0.32);
+  outline-offset: 2px;
+}
+
+.login-form button {
+  justify-content: center;
+  min-height: 42px;
+  margin-top: 6px;
+}
+
+.auth-check {
+  margin-bottom: 14px;
 }
 
 .score-layout {
@@ -447,13 +512,20 @@ li {
   }
 
   .topbar nav,
+  .topbar-actions,
   .score-metrics {
     grid-template-columns: 1fr;
     flex-wrap: wrap;
   }
 
+  .topbar-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .ticker-form input,
-  .ticker-form button {
+  .ticker-form button,
+  .logout-button {
     width: 100%;
     justify-content: center;
   }

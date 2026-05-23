@@ -24,6 +24,18 @@ cd /home/admin/us-stock-scorer
 sudo env SERVER_NAME=SERVER_IP bash deploy/install-production.sh
 ```
 
+Before starting the service, create `/home/admin/us-stock-scorer/apps/api/.env` with authentication settings:
+
+```bash
+STOCK_SCORER_READ_TOKEN=replace-with-long-random-read-token
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=replace-with-long-random-password
+ADMIN_SESSION_TTL_SECONDS=43200
+```
+
+`ADMIN_AUTH_TOKEN` is optional for scripts that need administrator-level Bearer access without using the browser login form.
+For local debugging only, the backend falls back to `wxlogin` when `STOCK_SCORER_READ_TOKEN` is unset. Production should set an explicit long random read token or replace this path with dynamic client login.
+
 Use a real domain when you have one:
 
 ```bash
@@ -41,7 +53,7 @@ sudo systemctl reload nginx
 ## URLs
 
 - Admin app: `http://SERVER_IP/`
-- API docs: `http://SERVER_IP/docs`
+- API docs: `http://SERVER_IP/docs` (requires an admin Bearer token)
 - API health: `http://SERVER_IP/health`
 
 Make sure the server firewall or cloud security group allows inbound TCP port `80`.

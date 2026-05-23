@@ -1,5 +1,6 @@
 export interface AppGlobalData {
   apiBaseUrl: string;
+  apiReadToken: string;
 }
 
 export interface AppOption {
@@ -8,6 +9,7 @@ export interface AppOption {
 
 App<AppOption>({
   globalData: {
-    apiBaseUrl: "http://127.0.0.1:8000"
+    apiBaseUrl: "http://127.0.0.1:8000",
+    apiReadToken: "wxlogin"
   }
 });
