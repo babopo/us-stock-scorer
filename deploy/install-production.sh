@@ -49,6 +49,7 @@ if [ "${#existing_api_pids[@]}" -gt 0 ]; then
   kill "${existing_api_pids[@]}" 2>/dev/null || true
 fi
 
+runuser -u "${APP_USER}" -- bash -lc "cd '${APP_ROOT}' && pnpm --filter @stock-scorer/api-client build"
 runuser -u "${APP_USER}" -- bash -lc "cd '${APP_ROOT}' && pnpm --filter @stock-scorer/admin build"
 
 rm -rf "${WEB_ROOT}"
