@@ -1,8 +1,9 @@
+from datetime import date, timedelta
+
 from fastapi.testclient import TestClient
 
-from stock_scorer.fixtures import get_stock_score as get_fixture_stock_score
 from stock_scorer.app import app
-from stock_scorer.market_data import MarketDataRateLimited
+from stock_scorer.market_data import DailyBar, MarketDataRateLimited, MarketSnapshot
 from stock_scorer import score_service
 
 
@@ -17,6 +18,50 @@ def read_auth_headers(monkeypatch):
 def admin_static_auth_headers(monkeypatch):
     monkeypatch.setenv("ADMIN_AUTH_TOKEN", "admin-static-token")
     return {"Authorization": "Bearer admin-static-token"}
+
+
+def market_snapshot(source: str, overview: dict[str, object], last_price: float = 100.0) -> MarketSnapshot:
+    first_day = date(2026, 5, 20)
+    bars = [
+        DailyBar(
+            date=(first_day - timedelta(days=index)).isoformat(),
+            open=100.0 - index,
+            high=101.0 - index,
+            low=99.0 - index,
+            close=100.0 - index,
+            adjusted_close=100.0 - index,
+            volume=1_000_000,
+        )
+        for index in range(60)
+    ]
+    return MarketSnapshot(
+        ticker="MSFT",
+        company_name=f"{source} Microsoft",
+        last_price=last_price,
+        data_as_of="2026-05-20",
+        daily_bars=bars,
+        overview=overview,
+        source=source,
+    )
+
+
+class FakeSnapshotClient:
+    def __init__(self, source: str, snapshot: MarketSnapshot | Exception, calls: list[str]):
+        self._source = source
+        self._snapshot = snapshot
+        self._calls = calls
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+        return None
+
+    def fetch_snapshot(self, ticker: str) -> MarketSnapshot:
+        self._calls.append(self._source)
+        if isinstance(self._snapshot, Exception):
+            raise self._snapshot
+        return self._snapshot
 
 
 def test_health_endpoint():
@@ -214,22 +259,114 @@ def test_admin_provider_status_includes_finnhub_fallback(monkeypatch):
 
 
 def test_score_endpoint_falls_back_to_finnhub_when_fmp_is_rate_limited(monkeypatch):
-    def raise_fmp_rate_limit(ticker: str):
-        raise MarketDataRateLimited("FMP rate limit exceeded")
-
-    def get_finnhub_score(ticker: str):
-        return get_fixture_stock_score(ticker).model_copy(update={"data_source": "finnhub"})
+    def fetch_by_source(source: str, ticker: str):
+        if source == "fmp":
+            raise MarketDataRateLimited("FMP rate limit exceeded")
+        if source == "finnhub":
+            return market_snapshot(
+                "finnhub",
+                {
+                    "PERatio": "28.5",
+                    "ProfitMargin": "0.25",
+                    "MarketCapitalization": "2500000000000",
+                },
+            )
+        raise AssertionError(source)
 
     monkeypatch.setenv("STOCK_SCORER_DATA_SOURCES", "fmp,finnhub")
     monkeypatch.setenv("FMP_API_KEY", "secret-fmp-key")
     monkeypatch.setenv("FINNHUB_API_KEY", "secret-finnhub-key")
-    monkeypatch.setattr(score_service, "get_fmp_stock_score", raise_fmp_rate_limit)
-    monkeypatch.setattr(score_service, "get_finnhub_stock_score", get_finnhub_score, raising=False)
+    monkeypatch.setattr(score_service, "fetch_market_snapshot_from_source", fetch_by_source)
 
     response = client.get("/v1/stocks/MSFT/score", headers=read_auth_headers(monkeypatch))
 
     assert response.status_code == 200
     assert response.json()["data_source"] == "finnhub"
+
+
+def test_score_endpoint_fills_missing_primary_fields_from_later_sources(monkeypatch):
+    calls: list[str] = []
+    fmp_snapshot = market_snapshot(
+        "fmp",
+        {
+            "PERatio": None,
+            "ForwardPE": "",
+            "ProfitMargin": "0.25",
+            "MarketCapitalization": "2500000000000",
+        },
+        last_price=321.0,
+    )
+    finnhub_snapshot = market_snapshot(
+        "finnhub",
+        {
+            "PERatio": "28.5",
+            "ForwardPE": "24.2",
+            "Beta": "0.92",
+        },
+        last_price=999.0,
+    )
+
+    monkeypatch.setenv("STOCK_SCORER_DATA_SOURCES", "fmp,finnhub")
+    monkeypatch.setenv("FMP_API_KEY", "secret-fmp-key")
+    monkeypatch.setenv("FINNHUB_API_KEY", "secret-finnhub-key")
+    monkeypatch.setattr(
+        score_service,
+        "FmpClient",
+        lambda *args, **kwargs: FakeSnapshotClient("fmp", fmp_snapshot, calls),
+    )
+    monkeypatch.setattr(
+        score_service,
+        "FinnhubClient",
+        lambda *args, **kwargs: FakeSnapshotClient("finnhub", finnhub_snapshot, calls),
+    )
+
+    response = client.get("/v1/stocks/MSFT/score", headers=read_auth_headers(monkeypatch))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert calls == ["fmp", "finnhub"]
+    assert payload["last_price"] == 321.0
+    assert payload["data_source"] == "fmp+finnhub"
+    valuation = next(factor for factor in payload["factors"] if factor["name"] == "估值")
+    assert valuation["score"] > 50
+    assert "PE/Forward PE 约 24.2" in valuation["evidence"][0]
+
+
+def test_score_endpoint_ignores_later_provider_failure_when_primary_succeeds(monkeypatch):
+    calls: list[str] = []
+    fmp_snapshot = market_snapshot(
+        "fmp",
+        {
+            "PERatio": "20",
+            "ProfitMargin": "0.25",
+            "MarketCapitalization": "2500000000000",
+        },
+        last_price=321.0,
+    )
+
+    monkeypatch.setenv("STOCK_SCORER_DATA_SOURCES", "fmp,finnhub")
+    monkeypatch.setenv("FMP_API_KEY", "secret-fmp-key")
+    monkeypatch.setenv("FINNHUB_API_KEY", "secret-finnhub-key")
+    monkeypatch.setattr(
+        score_service,
+        "FmpClient",
+        lambda *args, **kwargs: FakeSnapshotClient("fmp", fmp_snapshot, calls),
+    )
+    monkeypatch.setattr(
+        score_service,
+        "FinnhubClient",
+        lambda *args, **kwargs: FakeSnapshotClient(
+            "finnhub",
+            MarketDataRateLimited("Finnhub rate limit exceeded"),
+            calls,
+        ),
+    )
+
+    response = client.get("/v1/stocks/MSFT/score", headers=read_auth_headers(monkeypatch))
+
+    assert response.status_code == 200
+    assert response.json()["data_source"] == "fmp"
+    assert calls == ["fmp", "finnhub"]
 
 
 def test_admin_raw_data_returns_fixture_debug_payload(monkeypatch):
