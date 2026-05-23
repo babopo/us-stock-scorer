@@ -4,7 +4,14 @@ import httpx
 import pytest
 
 from stock_scorer.live_scoring import build_score_from_market_snapshot
-from stock_scorer.market_data import AlphaVantageClient, DailyBar, FmpClient, MarketDataRateLimited, MarketSnapshot
+from stock_scorer.market_data import (
+    AlphaVantageClient,
+    DailyBar,
+    FinnhubClient,
+    FmpClient,
+    MarketDataRateLimited,
+    MarketSnapshot,
+)
 
 
 def test_alpha_vantage_client_parses_daily_adjusted_and_overview():
@@ -186,6 +193,82 @@ def test_fmp_client_raises_rate_limited_for_429():
         return httpx.Response(429, json={"Error Message": "Too many requests"})
 
     client = FmpClient(api_key="test-key", http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+    with pytest.raises(MarketDataRateLimited):
+        client.fetch_snapshot("MSFT")
+
+
+def test_finnhub_client_parses_quote_candles_profile_and_metrics():
+    requested_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_paths.append(request.url.path)
+        assert request.url.params["token"] == "test-key"
+        if request.url.path == "/api/v1/quote":
+            return httpx.Response(200, json={"c": 452.1, "t": 1779235200})
+        if request.url.path == "/api/v1/stock/candle":
+            return httpx.Response(
+                200,
+                json={
+                    "s": "ok",
+                    "t": [1779235200, 1779148800],
+                    "o": [450.0, 445.0],
+                    "h": [455.0, 451.0],
+                    "l": [448.0, 443.5],
+                    "c": [452.1, 449.0],
+                    "v": [30234567, 25400000],
+                },
+            )
+        if request.url.path == "/api/v1/stock/profile2":
+            return httpx.Response(
+                200,
+                json={
+                    "ticker": "MSFT",
+                    "name": "Microsoft Corporation",
+                    "marketCapitalization": 3350000,
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "metric": {
+                    "peTTM": 34.5,
+                    "beta": 0.89,
+                    "netProfitMarginAnnual": 36.0,
+                    "revenueGrowthTTMYoy": 13.0,
+                    "epsGrowthTTMYoy": 18.0,
+                }
+            },
+        )
+
+    client = FinnhubClient(api_key="test-key", http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+    snapshot = client.fetch_snapshot("msft")
+
+    assert requested_paths == [
+        "/api/v1/quote",
+        "/api/v1/stock/candle",
+        "/api/v1/stock/profile2",
+        "/api/v1/stock/metric",
+    ]
+    assert snapshot.ticker == "MSFT"
+    assert snapshot.company_name == "Microsoft Corporation"
+    assert snapshot.last_price == 452.1
+    assert snapshot.data_as_of == "2026-05-20"
+    assert snapshot.source == "finnhub"
+    assert snapshot.daily_bars[0].adjusted_close == 452.1
+    assert snapshot.overview["Name"] == "Microsoft Corporation"
+    assert snapshot.overview["MarketCapitalization"] == 3_350_000_000_000
+    assert snapshot.overview["PERatio"] == 34.5
+    assert snapshot.overview["ProfitMargin"] == pytest.approx(0.36)
+    assert snapshot.overview["QuarterlyRevenueGrowthYOY"] == pytest.approx(0.13)
+
+
+def test_finnhub_client_raises_rate_limited_for_429():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, json={"error": "API limit reached"})
+
+    client = FinnhubClient(api_key="test-key", http_client=httpx.Client(transport=httpx.MockTransport(handler)))
 
     with pytest.raises(MarketDataRateLimited):
         client.fetch_snapshot("MSFT")

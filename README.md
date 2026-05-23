@@ -66,6 +66,18 @@ uvicorn stock_scorer.app:app --reload --port 8000
 
 当前 FMP 接入会拉取 `quote`、`historical-price-eod/full`、`profile` 和 `income-statement`，用 EOD 日线、公司 profile、利润率和增长代理生成第一阶段评分。没有 key、触发限流或上游不可用时，API 会返回 503/502，并保留 fixture 作为默认开发模式。
 
+如果 FMP 免费额度或 ticker 覆盖不足，可以配置有序 fallback 链。`STOCK_SCORER_DATA_SOURCES` 存在时会优先于单一的 `STOCK_SCORER_DATA_SOURCE`：
+
+```bash
+export STOCK_SCORER_DATA_SOURCES=fmp,finnhub,alpha_vantage
+export FMP_API_KEY=your_fmp_api_key
+export FINNHUB_API_KEY=your_finnhub_api_key
+export ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key
+uvicorn stock_scorer.app:app --reload --port 8000
+```
+
+评分会按顺序尝试数据源。例如 FMP 查不到 ticker、触发限流或临时不可用时，会自动尝试 Finnhub；Finnhub 失败后再尝试 Alpha Vantage。当前 Finnhub 接入会拉取 `quote`、`stock/candle`、`stock/profile2` 和 `stock/metric`，并映射成统一的评分输入。
+
 Alpha Vantage 仍作为备用数据源保留：
 
 ```bash

@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from time import time
 from typing import Any
 
 import httpx
@@ -232,6 +234,186 @@ def _raise_for_fmp_payload_error(payload: Any) -> None:
     if "limit" in text.lower() or "too many" in text.lower():
         raise MarketDataRateLimited(text)
     raise MarketDataUnavailable(text)
+
+
+class FinnhubClient:
+    BASE_URL = "https://finnhub.io/api/v1"
+
+    def __init__(self, api_key: str, http_client: httpx.Client | None = None, timeout: float = 10.0):
+        if not api_key:
+            raise MarketDataConfigurationError("FINNHUB_API_KEY is required when STOCK_SCORER_DATA_SOURCE=finnhub")
+        self._api_key = api_key
+        self._client = http_client or httpx.Client(timeout=timeout)
+        self._owns_client = http_client is None
+
+    def close(self) -> None:
+        if self._owns_client:
+            self._client.close()
+
+    def __enter__(self) -> "FinnhubClient":
+        return self
+
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+        self.close()
+
+    def fetch_snapshot(self, ticker: str) -> MarketSnapshot:
+        normalized = ticker.upper()
+        quote = self._get("quote", symbol=normalized)
+        bars = _parse_finnhub_daily_bars(
+            self._get(
+                "stock/candle",
+                symbol=normalized,
+                resolution="D",
+                **_finnhub_history_range(),
+            ),
+            normalized,
+        )
+        profile = self._get("stock/profile2", symbol=normalized)
+        metrics = self._get("stock/metric", symbol=normalized, metric="all")
+        if not isinstance(profile, dict):
+            raise MarketDataUnavailable("Finnhub returned an unexpected profile payload")
+        latest = bars[0]
+        company_name = str(profile.get("name") or normalized)
+
+        return MarketSnapshot(
+            ticker=normalized,
+            company_name=company_name,
+            last_price=_optional_float(quote.get("c")) or latest.adjusted_close,
+            data_as_of=latest.date,
+            daily_bars=bars,
+            overview=_build_finnhub_overview(company_name, profile, metrics),
+            source="finnhub",
+        )
+
+    def _get(self, endpoint: str, **params: str) -> Any:
+        try:
+            response = self._client.get(
+                f"{self.BASE_URL}/{endpoint}",
+                params={**params, "token": self._api_key},
+            )
+            _raise_for_finnhub_http_status(response)
+            payload = response.json()
+        except httpx.HTTPError as exc:
+            raise MarketDataUnavailable(f"Finnhub request failed: {exc}") from exc
+        except ValueError as exc:
+            raise MarketDataUnavailable("Finnhub returned non-JSON data") from exc
+
+        _raise_for_finnhub_payload_error(payload)
+        return payload
+
+
+def _finnhub_history_range() -> dict[str, str]:
+    to_timestamp = int(time())
+    from_timestamp = to_timestamp - 120 * 24 * 60 * 60
+    return {"from": str(from_timestamp), "to": str(to_timestamp)}
+
+
+def _raise_for_finnhub_http_status(response: httpx.Response) -> None:
+    if response.status_code in {401, 403}:
+        raise MarketDataConfigurationError("Finnhub rejected the API key")
+    if response.status_code == 404:
+        raise MarketDataNotFound("Finnhub endpoint or ticker was not found")
+    if response.status_code == 429:
+        raise MarketDataRateLimited("Finnhub rate limit exceeded")
+    response.raise_for_status()
+
+
+def _raise_for_finnhub_payload_error(payload: Any) -> None:
+    if not isinstance(payload, dict):
+        return
+    message = payload.get("error") or payload.get("message")
+    if not message:
+        return
+    text = str(message)
+    if "limit" in text.lower() or "too many" in text.lower():
+        raise MarketDataRateLimited(text)
+    raise MarketDataUnavailable(text)
+
+
+def _parse_finnhub_daily_bars(payload: Any, ticker: str) -> list[DailyBar]:
+    if not isinstance(payload, dict):
+        raise MarketDataUnavailable("Finnhub returned an unexpected candle payload")
+    if payload.get("s") == "no_data":
+        raise MarketDataNotFound(f"No Finnhub candle data found for {ticker}")
+    if payload.get("s") not in (None, "ok"):
+        raise MarketDataUnavailable(f"Finnhub candle request failed for {ticker}: {payload.get('s')}")
+
+    timestamps = payload.get("t")
+    opens = payload.get("o")
+    highs = payload.get("h")
+    lows = payload.get("l")
+    closes = payload.get("c")
+    volumes = payload.get("v")
+    series = [timestamps, opens, highs, lows, closes, volumes]
+    if not all(isinstance(values, list) for values in series):
+        raise MarketDataNotFound(f"No Finnhub candle data found for {ticker}")
+    if not timestamps:
+        raise MarketDataNotFound(f"No Finnhub candle data found for {ticker}")
+    if len({len(values) for values in series}) != 1:
+        raise MarketDataUnavailable(f"Malformed Finnhub candle data found for {ticker}")
+
+    bars = [
+        DailyBar(
+            date=_date_from_unix_timestamp(timestamps[index]),
+            open=float(opens[index]),
+            high=float(highs[index]),
+            low=float(lows[index]),
+            close=float(closes[index]),
+            adjusted_close=float(closes[index]),
+            volume=int(float(volumes[index])),
+        )
+        for index in range(len(timestamps))
+    ]
+    return sorted(bars, key=lambda bar: bar.date, reverse=True)
+
+
+def _date_from_unix_timestamp(value: Any) -> str:
+    try:
+        timestamp = int(value)
+    except (TypeError, ValueError) as exc:
+        raise MarketDataUnavailable(f"Invalid Finnhub timestamp: {value}") from exc
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).date().isoformat()
+
+
+def _build_finnhub_overview(
+    company_name: str,
+    profile: dict[str, Any],
+    metrics_payload: dict[str, Any],
+) -> dict[str, Any]:
+    metrics = metrics_payload.get("metric") if isinstance(metrics_payload, dict) else {}
+    if not isinstance(metrics, dict):
+        metrics = {}
+
+    return {
+        "Name": company_name,
+        "MarketCapitalization": _finnhub_market_cap(profile.get("marketCapitalization")),
+        "PERatio": _first_present(metrics, "peTTM", "peBasicExclExtraTTM", "peNormalizedAnnual"),
+        "ForwardPE": _first_present(metrics, "forwardPE", "forwardPe"),
+        "ProfitMargin": _percent_to_ratio(_first_present(metrics, "netProfitMarginTTM", "netProfitMarginAnnual")),
+        "QuarterlyRevenueGrowthYOY": _percent_to_ratio(
+            _first_present(metrics, "revenueGrowthTTMYoy", "revenueGrowthQuarterlyYoy")
+        ),
+        "QuarterlyEarningsGrowthYOY": _percent_to_ratio(
+            _first_present(metrics, "epsGrowthTTMYoy", "epsGrowthQuarterlyYoy")
+        ),
+        "Beta": _first_present(metrics, "beta"),
+    }
+
+
+def _finnhub_market_cap(value: Any) -> float | None:
+    market_cap = _optional_float(value)
+    if market_cap is None:
+        return None
+    return market_cap * 1_000_000
+
+
+def _percent_to_ratio(value: Any) -> float | None:
+    numeric = _optional_float(value)
+    if numeric is None:
+        return None
+    if abs(numeric) > 1:
+        return numeric / 100
+    return numeric
 
 
 def _parse_fmp_daily_bars(payload: Any, ticker: str) -> list[DailyBar]:

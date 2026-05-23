@@ -18,7 +18,7 @@ from stock_scorer.market_data import (
     MarketDataUnavailable,
 )
 from stock_scorer.models import StockScoreResponse
-from stock_scorer.score_service import get_stock_score
+from stock_scorer.score_service import get_active_source_label, get_configured_data_sources, get_stock_score
 
 
 app = FastAPI(title="US Stock Scorer API", version="0.1.0")
@@ -55,20 +55,26 @@ def stock_score(ticker: str) -> StockScoreResponse:
 
 @app.get("/v1/admin/providers/status", response_model=ProviderStatusResponse)
 def admin_provider_status() -> ProviderStatusResponse:
-    active_source = os.getenv("STOCK_SCORER_DATA_SOURCE", "fixture").strip().lower() or "fixture"
+    active_source = get_active_source_label()
+    active_sources = set(get_configured_data_sources())
     return ProviderStatusResponse(
         active_source=active_source,
         providers={
-            "fixture": ProviderHealth(name="fixture", api_key_configured=True, active=active_source in {"fixture", "fixtures"}),
+            "fixture": ProviderHealth(name="fixture", api_key_configured=True, active=bool(active_sources & {"fixture", "fixtures"})),
             "fmp": ProviderHealth(
                 name="fmp",
                 api_key_configured=bool(os.getenv("FMP_API_KEY")),
-                active=active_source == "fmp",
+                active="fmp" in active_sources,
+            ),
+            "finnhub": ProviderHealth(
+                name="finnhub",
+                api_key_configured=bool(os.getenv("FINNHUB_API_KEY")),
+                active="finnhub" in active_sources,
             ),
             "alpha_vantage": ProviderHealth(
                 name="alpha_vantage",
                 api_key_configured=bool(os.getenv("ALPHA_VANTAGE_API_KEY")),
-                active=active_source in {"alpha_vantage", "alphavantage"},
+                active="alpha_vantage" in active_sources,
             ),
         },
     )
