@@ -1,9 +1,7 @@
 export { createStockScorerClient, normalizeResponse, normalizeTicker } from "./client";
 export { ApiError, getErrorCode, isApiError } from "./errors";
 export { createFetchTransport } from "./transports/fetch";
-export { createWxTransport } from "./transports/wx";
 export type { FetchLike } from "./transports/fetch";
-export type { WxRequestApi } from "./transports/wx";
 export type {
   ActionDecision,
   AdminLoginResponse,

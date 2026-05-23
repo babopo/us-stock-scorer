@@ -1,9 +1,0 @@
-{
-  "pages": ["pages/index/index"],
-  "window": {
-    "navigationBarTitleText": "美股评分器",
-    "navigationBarBackgroundColor": "#0f172a",
-    "navigationBarTextStyle": "white",
-    "backgroundColor": "#f8fafc"
-  }
-}

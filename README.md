@@ -15,7 +15,6 @@ us-stock-scorer/
   apps/
     api/          # FastAPI backend, scoring engine, tests
     admin/        # React/Vite web admin for scoring and provider debugging
-    miniprogram/  # 微信小程序前端
     research/     # 本地研究脚本和回测实验
   packages/
     api-client/   # 前端共享 API client、错误映射和 transport 适配
@@ -31,9 +30,8 @@ us-stock-scorer/
 当前 MVP 已包含：
 
 - FastAPI 后端评分 API，默认使用 fixture 数据，也支持 FMP 和 Alpha Vantage 数据源配置。
-- 共享 TypeScript API client，统一封装 `fetch` 和微信小程序 `wx.request` transport、ticker 规范化和错误映射。
-- 微信小程序页面，用共享 client 查询评分并渲染双周期判断、因子雷达和行动建议。
-- React/Vite Web 管理后台，用于本地评分调试、数据源状态检查、fixture 原始数据查看和单只 ticker 刷新。
+- 共享 TypeScript API client，统一封装 Web `fetch` transport、ticker 规范化和错误映射。
+- React/Vite Web 管理后台，用于本地评分调试、数据源状态检查、fixture 原始数据查看和单只 ticker 刷新；前端路线以 Web 为主。
 - 管理端 FastAPI 接口：`/v1/admin/providers/status`、`/v1/admin/stocks/{ticker}/raw-data`、`/v1/admin/stocks/{ticker}/refresh`。
 
 下一阶段重点是真实数据源的原始数据排查能力、每日评分快照落库和更完整的服务器部署文档。
@@ -60,13 +58,13 @@ export ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 本地启动受保护接口前，至少配置只读 token 和 Admin 登录账号：
 
 ```bash
-export STOCK_SCORER_READ_TOKEN=wxlogin
+export STOCK_SCORER_READ_TOKEN=local-read-token
 export ADMIN_USERNAME=admin
 export ADMIN_PASSWORD=change-me
 export ADMIN_SESSION_TTL_SECONDS=43200
 ```
 
-调试阶段后端默认只读 token 也是 `wxlogin`；上线前应改成动态登录或至少替换为长随机 token。
+调试阶段后端默认只读 token 也是 `local-read-token`；上线前应改成动态登录或至少替换为长随机 token。
 
 `ADMIN_AUTH_TOKEN` 是可选的静态管理员 Bearer token，适合脚本或过渡期运维调用；Web 管理后台会使用用户名密码登录后拿到短期 session token。
 
@@ -121,19 +119,6 @@ export VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
 
 打开管理后台后使用 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 登录。生产环境不要把长期 Admin token 打进前端静态包。
-
-Mini Program:
-
-Open `apps/miniprogram` in WeChat DevTools.
-
-小程序访问评分接口时需要只读 Bearer token。当前调试版 `apps/miniprogram/app.ts` 的 `apiReadToken` 默认是 `wxlogin`，与后端默认 `STOCK_SCORER_READ_TOKEN` 一致；这只能阻止随意裸调，不等于强用户身份认证。未来如果给多人使用，应升级为客户端登录或第三方身份服务。
-
-小程序源码使用 TypeScript，`project.config.json` 已启用微信开发者工具内置的 TypeScript 编译插件。接口调用依赖共享 API client；首次打开或更新依赖后，在仓库根目录安装前端依赖、编译共享 client，然后在微信开发者工具里执行“工具 -> 构建 npm”：
-
-```bash
-pnpm install
-pnpm build
-```
 
 Shared TypeScript checks and tests:
 

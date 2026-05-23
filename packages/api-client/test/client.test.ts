@@ -4,12 +4,9 @@ import { test } from "node:test";
 import {
   ApiError,
   type ApiRequest,
-  type ApiTransport,
   createStockScorerClient,
-  createWxTransport,
   normalizeTicker,
-  type StockScoreResponse,
-  type WxRequestApi
+  type StockScoreResponse
 } from "../src";
 
 const sampleScore: StockScoreResponse = {
@@ -139,28 +136,4 @@ test("admin auth methods call login, session, and logout endpoints", async () =>
   assert.equal(requests[1]?.url, "http://127.0.0.1:8000/v1/admin/auth/session");
   assert.equal(requests[2]?.method, "POST");
   assert.equal(requests[2]?.url, "http://127.0.0.1:8000/v1/admin/auth/logout");
-});
-
-test("createWxTransport adapts wx.request to the shared transport contract", async () => {
-  const wxApi: WxRequestApi = {
-    request(options) {
-      assert.equal(options.url, "http://127.0.0.1:8000/health?debug=true");
-      assert.equal(options.method, "GET");
-      options.success({
-        statusCode: 200,
-        header: { "x-request-id": "req_456" },
-        data: { status: "ok" } as Parameters<typeof options.success>[0]["data"]
-      });
-    }
-  };
-
-  const transport: ApiTransport = createWxTransport(wxApi);
-  const response = await transport({
-    method: "GET",
-    url: "http://127.0.0.1:8000/health",
-    query: { debug: true }
-  });
-
-  assert.equal(response.status, 200);
-  assert.deepEqual(response.data, { status: "ok" });
 });

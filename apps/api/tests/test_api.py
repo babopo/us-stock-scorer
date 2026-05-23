@@ -98,10 +98,10 @@ def test_stock_score_endpoint_accepts_read_token(monkeypatch):
     assert payload["decision"]["action"] == "wait"
 
 
-def test_stock_score_endpoint_accepts_default_wxlogin_read_token(monkeypatch):
+def test_stock_score_endpoint_accepts_default_local_read_token(monkeypatch):
     monkeypatch.delenv("STOCK_SCORER_READ_TOKEN", raising=False)
 
-    response = client.get("/v1/stocks/MSFT/score", headers={"Authorization": "Bearer wxlogin"})
+    response = client.get("/v1/stocks/MSFT/score", headers={"Authorization": "Bearer local-read-token"})
 
     assert response.status_code == 200
     assert response.json()["ticker"] == "MSFT"

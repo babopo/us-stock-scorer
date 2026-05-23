@@ -34,7 +34,7 @@ ADMIN_SESSION_TTL_SECONDS=43200
 ```
 
 `ADMIN_AUTH_TOKEN` is optional for scripts that need administrator-level Bearer access without using the browser login form.
-For local debugging only, the backend falls back to `wxlogin` when `STOCK_SCORER_READ_TOKEN` is unset. Production should set an explicit long random read token or replace this path with dynamic client login.
+For local debugging only, the backend falls back to `local-read-token` when `STOCK_SCORER_READ_TOKEN` is unset. Production should set an explicit long random read token or replace this path with dynamic client login.
 
 Use a real domain when you have one:
 

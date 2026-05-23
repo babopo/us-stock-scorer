@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 
 DEFAULT_ADMIN_SESSION_TTL_SECONDS = 12 * 60 * 60
-DEFAULT_STOCK_SCORER_READ_TOKEN = "wxlogin"
+DEFAULT_STOCK_SCORER_READ_TOKEN = "local-read-token"
 
 bearer_security = HTTPBearer(auto_error=False)
 _admin_sessions: dict[str, datetime] = {}

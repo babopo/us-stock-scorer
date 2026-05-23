@@ -1,6 +1,5 @@
 packages:
   - "apps/admin"
-  - "apps/miniprogram"
   - "packages/*"
 allowBuilds:
   esbuild: true

@@ -6,8 +6,7 @@ The backend remains the source of truth for scoring logic and response models. T
 
 Current consumers:
 
-- WeChat Mini Program through `createWxTransport(wx)`
-- Future web admin through `createFetchTransport(fetch)`
+- React/Vite web admin through `createFetchTransport(fetch)`
 
 Example:
 
