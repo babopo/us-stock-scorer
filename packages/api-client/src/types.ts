@@ -88,6 +88,23 @@ export type ScoreSnapshots = Record<string, unknown>;
 
 export type RefreshTickerResponse = Record<string, unknown>;
 
+export interface AdminLoginResponse {
+  access_token: string;
+  token_type: "bearer";
+  expires_in_seconds: number;
+  expires_at: string;
+}
+
+export interface AdminSessionResponse {
+  authenticated: boolean;
+  role: "admin";
+  expires_at: string | null;
+}
+
+export interface AdminLogoutResponse {
+  status: "logged_out";
+}
+
 export interface StockScorerClientOptions {
   baseUrl?: string;
   transport: ApiTransport;
@@ -106,4 +123,7 @@ export interface StockScorerClient {
   getTickerRawData(ticker: string): Promise<TickerRawData>;
   getScoreSnapshots(ticker: string, options?: ScoreSnapshotOptions): Promise<ScoreSnapshots>;
   refreshTicker(ticker: string): Promise<RefreshTickerResponse>;
+  loginAdmin(username: string, password: string): Promise<AdminLoginResponse>;
+  getAdminSession(): Promise<AdminSessionResponse>;
+  logoutAdmin(): Promise<AdminLogoutResponse>;
 }

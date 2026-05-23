@@ -28,9 +28,12 @@ export function resolveDefaultApiBaseUrl(apiBaseUrl: string | undefined): string
   return apiBaseUrl || "";
 }
 
-export function createDefaultAdminApiClient(): StockScorerClient {
-  return createAdminApiClient({
-    baseUrl: resolveDefaultApiBaseUrl(import.meta.env.VITE_API_BASE_URL),
-    adminToken: import.meta.env.VITE_ADMIN_AUTH_TOKEN || undefined
-  });
+export function createDefaultAdminApiClient(adminToken?: string): StockScorerClient {
+  const options: AdminApiClientOptions = {
+    baseUrl: resolveDefaultApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
+  };
+  if (adminToken) {
+    options.adminToken = adminToken;
+  }
+  return createAdminApiClient(options);
 }

@@ -88,6 +88,59 @@ test("non-2xx responses are mapped to ApiError", async () => {
   );
 });
 
+test("admin auth methods call login, session, and logout endpoints", async () => {
+  const requests: ApiRequest[] = [];
+  const client = createStockScorerClient({
+    baseUrl: "http://127.0.0.1:8000",
+    transport: async <T = unknown>(request: ApiRequest) => {
+      requests.push(request);
+      if (request.url.endsWith("/login")) {
+        return {
+          status: 200,
+          headers: {},
+          data: {
+            access_token: "admin-session-token",
+            token_type: "bearer",
+            expires_in_seconds: 43200,
+            expires_at: "2026-05-23T12:00:00Z"
+          } as T
+        };
+      }
+      if (request.url.endsWith("/session")) {
+        return {
+          status: 200,
+          headers: {},
+          data: {
+            authenticated: true,
+            role: "admin",
+            expires_at: "2026-05-23T12:00:00Z"
+          } as T
+        };
+      }
+      return {
+        status: 200,
+        headers: {},
+        data: { status: "logged_out" } as T
+      };
+    }
+  });
+
+  const login = await client.loginAdmin("admin", "secret-password");
+  const session = await client.getAdminSession();
+  const logout = await client.logoutAdmin();
+
+  assert.equal(login.access_token, "admin-session-token");
+  assert.equal(session.authenticated, true);
+  assert.equal(logout.status, "logged_out");
+  assert.equal(requests[0]?.method, "POST");
+  assert.equal(requests[0]?.url, "http://127.0.0.1:8000/v1/admin/auth/login");
+  assert.deepEqual(requests[0]?.body, { username: "admin", password: "secret-password" });
+  assert.equal(requests[1]?.method, "GET");
+  assert.equal(requests[1]?.url, "http://127.0.0.1:8000/v1/admin/auth/session");
+  assert.equal(requests[2]?.method, "POST");
+  assert.equal(requests[2]?.url, "http://127.0.0.1:8000/v1/admin/auth/logout");
+});
+
 test("createWxTransport adapts wx.request to the shared transport contract", async () => {
   const wxApi: WxRequestApi = {
     request(options) {

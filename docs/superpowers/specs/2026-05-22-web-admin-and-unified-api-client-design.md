@@ -4,21 +4,21 @@
 
 ## 当前实现状态
 
-截至 2026-05-22，仓库已经完成第一版 Web 管理后台和统一 API client 的主要骨架：
+截至 2026-05-23，仓库已经完成第一版 Web 管理后台和统一 API client 的主要骨架：
 
 - `packages/api-client` 已提供 TypeScript client、`fetch` transport、`wx.request` transport、ticker 规范化和错误映射。
 - `apps/miniprogram` 已迁移到 TypeScript，并通过共享 client 调用后端评分接口。
 - `apps/admin` 已使用 Vite、React、TypeScript 和 TanStack Query 建立本地后台，首屏包含评分调试、数据源状态和运维操作区域。
 - `apps/api` 已增加 CORS 配置和第一批管理端接口：provider status、fixture raw data、ticker refresh。
+- `apps/api` 已增加轻量 Bearer 鉴权、Admin 用户名密码登录、短期 session token 和只读 token。
 - 根目录 `pnpm build`、`pnpm typecheck`、`pnpm test` 已纳入 `apps/admin`。
 
 仍未完成的部分：
 
-- 管理端 token 校验尚未在 FastAPI 中强制执行。
 - OpenAPI 类型生成脚本还未接入，当前 client 类型仍为手写维护。
 - `/v1/admin/stocks/{ticker}/snapshots`、jobs 查询、批量刷新和评分快照落库尚未实现。
 - 真实数据源的 raw-data 排查接口尚未开放，目前 raw-data 只支持 fixture 数据源。
-- 服务器部署、反向代理和生产鉴权文档仍待补充。
+- 服务器部署、反向代理和生产鉴权文档仍可继续细化。
 
 ## 背景
 
@@ -327,6 +327,10 @@ GET  /v1/admin/jobs/{job_id}
 STOCK_SCORER_DATA_SOURCE=fixture|fmp|alpha_vantage
 FMP_API_KEY=...
 ALPHA_VANTAGE_API_KEY=...
+STOCK_SCORER_READ_TOKEN=wxlogin
+ADMIN_USERNAME=...
+ADMIN_PASSWORD=...
+ADMIN_SESSION_TTL_SECONDS=43200
 ADMIN_AUTH_TOKEN=...
 ALLOWED_ORIGINS=http://localhost:5173,https://admin.example.com
 ```
@@ -335,22 +339,22 @@ ALLOWED_ORIGINS=http://localhost:5173,https://admin.example.com
 
 ```text
 VITE_API_BASE_URL=http://127.0.0.1:8000
-VITE_ADMIN_AUTH_TOKEN=local-dev-token
 ```
 
-生产环境不建议把长期 token 固化进前端包。个人开发阶段可以先用反向代理 Basic Auth 或短期 token，后续再升级登录态。
+调试阶段后端默认只读 token 是 `wxlogin`。Web Admin 使用用户名密码登录后获得短期 admin session token。生产环境不建议把长期 token 固化进前端包。
 
 ### 小程序
 
 ```js
 App({
   globalData: {
-    apiBaseUrl: config.apiBaseUrl
+    apiBaseUrl: config.apiBaseUrl,
+    apiReadToken: config.apiReadToken
   }
 });
 ```
 
-建议新增 `apps/miniprogram/utils/config.js` 区分本地、体验版、正式版 API 域名。
+建议新增 `apps/miniprogram/utils/config.js` 区分本地、体验版、正式版 API 域名和只读 token。
 
 ## 服务端部署草案
 
@@ -379,7 +383,8 @@ uvicorn stock_scorer.app:app --host 127.0.0.1 --port 8000
 FastAPI 侧职责：
 
 - CORS 白名单。
-- 管理端 token 校验。
+- `/v1` 业务接口 Bearer token 校验。
+- Admin 用户名密码登录、短期 session token 和静态运维 token 校验。
 - 请求日志和 request id。
 - 上游错误转换。
 
@@ -438,19 +443,19 @@ pnpm --filter @stock-scorer/admin dev
 
 ### 阶段 4：增加管理端后端接口
 
-状态：部分完成。
+状态：已完成当前第一版。
 
 1. 已新增 `admin_models.py`，当前路由仍在 `app.py` 中。
 2. 已加 `/v1/admin/providers/status`。
 3. 已加 `/v1/admin/stocks/{ticker}/raw-data`，当前只支持 fixture 数据源。
 4. 已加 `/v1/admin/stocks/{ticker}/refresh`，当前复用同步评分管线。
-5. token 校验仍待实现。
+5. 已加 `/v1/admin/auth/login`、`/v1/admin/auth/session`、`/v1/admin/auth/logout` 和 Bearer token 校验。
 
 ### 阶段 5：服务器部署准备
 
 状态：部分完成。
 
-1. 已有 `.env.example`，仍需补齐 admin 相关配置项。
+1. 已有 `.env.example`，包含数据源和鉴权配置项。
 2. 已增加 CORS 配置。
 3. 增加 Dockerfile / compose 或 systemd 文档。
 4. 增加 Caddy / Nginx 示例。

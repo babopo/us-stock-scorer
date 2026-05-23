@@ -6,9 +6,15 @@ import {
   isApiError
 } from "@stock-scorer/api-client";
 
-export function createMiniProgramApiClient(baseUrl: string): StockScorerClient {
+export function createMiniProgramApiClient(baseUrl: string, readToken?: string): StockScorerClient {
+  const headers: Record<string, string> = {};
+  if (readToken) {
+    headers.authorization = `Bearer ${readToken}`;
+  }
+
   return createStockScorerClient({
     baseUrl,
+    headers,
     transport: createWxTransport(wx as unknown as WxRequestApi)
   });
 }
@@ -28,6 +34,10 @@ export function getApiErrorMessage(error: unknown): string {
 
   if (error.code === "rate_limited") {
     return "数据源请求过快，请稍后重试";
+  }
+
+  if (error.code === "unauthorized" || error.code === "forbidden") {
+    return "当前客户端没有访问权限";
   }
 
   return "请求后端服务失败，请稍后重试";
