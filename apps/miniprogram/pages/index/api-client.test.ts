@@ -1,7 +1,46 @@
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import path from "node:path";
 import { test } from "node:test";
+import * as ts from "typescript";
 
 import { createMiniProgramApiClient } from "../../utils/api";
+
+const MINIPROGRAM_ROOT = path.resolve(process.cwd(), "apps/miniprogram");
+
+function getTypeScriptFiles(directory: string): string[] {
+  return readdirSync(directory).flatMap((entry) => {
+    if (entry === "node_modules" || entry === "miniprogram_npm") {
+      return [];
+    }
+
+    const filePath = path.join(directory, entry);
+    const stats = statSync(filePath);
+    if (stats.isDirectory()) {
+      return getTypeScriptFiles(filePath);
+    }
+
+    return filePath.endsWith(".ts") ? [filePath] : [];
+  });
+}
+
+test("mini program sources only use api-client as a type-only import", () => {
+  for (const filePath of getTypeScriptFiles(MINIPROGRAM_ROOT)) {
+    const sourceText = readFileSync(filePath, "utf8");
+    const sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true);
+
+    for (const statement of sourceFile.statements) {
+      if (
+        ts.isImportDeclaration(statement) &&
+        ts.isStringLiteral(statement.moduleSpecifier) &&
+        statement.moduleSpecifier.text === "@stock-scorer/api-client" &&
+        !statement.importClause?.isTypeOnly
+      ) {
+        assert.fail(`${path.relative(MINIPROGRAM_ROOT, filePath)} imports @stock-scorer/api-client at runtime`);
+      }
+    }
+  }
+});
 
 test("createMiniProgramApiClient sends the configured read token", async () => {
   const previousWx = (globalThis as typeof globalThis & { wx?: unknown }).wx;

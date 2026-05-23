@@ -4,7 +4,7 @@ import {
   createStockScorerClient,
   createWxTransport,
   isApiError
-} from "@stock-scorer/api-client";
+} from "./api-client-runtime";
 
 export function createMiniProgramApiClient(baseUrl: string, readToken?: string): StockScorerClient {
   const headers: Record<string, string> = {};
