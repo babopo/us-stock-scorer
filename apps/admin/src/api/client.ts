@@ -24,9 +24,13 @@ export function createAdminApiClient(options: AdminApiClientOptions = {}): Stock
   });
 }
 
+export function resolveDefaultApiBaseUrl(apiBaseUrl: string | undefined): string {
+  return apiBaseUrl || "";
+}
+
 export function createDefaultAdminApiClient(): StockScorerClient {
   return createAdminApiClient({
-    baseUrl: import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000",
+    baseUrl: resolveDefaultApiBaseUrl(import.meta.env.VITE_API_BASE_URL),
     adminToken: import.meta.env.VITE_ADMIN_AUTH_TOKEN || undefined
   });
 }

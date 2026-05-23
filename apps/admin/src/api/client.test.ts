@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createAdminApiClient } from "./client";
+import { createAdminApiClient, resolveDefaultApiBaseUrl } from "./client";
 
 describe("createAdminApiClient", () => {
   it("uses the shared API client with fetch transport and admin auth header", async () => {
@@ -27,5 +27,13 @@ describe("createAdminApiClient", () => {
         })
       })
     );
+  });
+
+  it("defaults to same-origin API requests for production deployment", () => {
+    expect(resolveDefaultApiBaseUrl(undefined)).toBe("");
+  });
+
+  it("uses an explicit API base URL when configured", () => {
+    expect(resolveDefaultApiBaseUrl("https://stocks.example.com")).toBe("https://stocks.example.com");
   });
 });

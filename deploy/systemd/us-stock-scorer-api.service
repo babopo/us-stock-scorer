@@ -1,0 +1,16 @@
+[Unit]
+Description=US Stock Scorer FastAPI service
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+Group=admin
+WorkingDirectory=/home/admin/us-stock-scorer/apps/api
+EnvironmentFile=-/home/admin/us-stock-scorer/apps/api/.env
+ExecStart=/home/admin/us-stock-scorer/apps/api/.venv/bin/uvicorn stock_scorer.app:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
