@@ -148,6 +148,31 @@ def test_fmp_client_parses_quote_history_profile_and_income_statement():
                     }
                 ],
             )
+        if request.url.path == "/stable/ratios-ttm":
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "priceToEarningsRatioTTM": 31.2,
+                        "priceToFreeCashFlowRatioTTM": 42.6,
+                        "debtToEquityRatioTTM": 0.42,
+                        "interestCoverageRatioTTM": 28.5,
+                    }
+                ],
+            )
+        if request.url.path == "/stable/key-metrics-ttm":
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "earningsYieldTTM": 0.032,
+                        "freeCashFlowYieldTTM": 0.024,
+                        "netDebtToEBITDATTM": 0.12,
+                        "capexToRevenueTTM": -0.14,
+                        "stockBasedCompensationToRevenueTTM": 0.03,
+                    }
+                ],
+            )
         return httpx.Response(
             200,
             json=[
@@ -175,6 +200,8 @@ def test_fmp_client_parses_quote_history_profile_and_income_statement():
         "/stable/historical-price-eod/full",
         "/stable/profile",
         "/stable/income-statement",
+        "/stable/ratios-ttm",
+        "/stable/key-metrics-ttm",
     ]
     assert snapshot.ticker == "MSFT"
     assert snapshot.company_name == "Microsoft Corporation"
@@ -184,8 +211,16 @@ def test_fmp_client_parses_quote_history_profile_and_income_statement():
     assert snapshot.daily_bars[0].adjusted_close == 452.1
     assert snapshot.overview["Name"] == "Microsoft Corporation"
     assert snapshot.overview["PERatio"] == 34.5
+    assert snapshot.overview["FallbackPERatio"] == 31.2
     assert snapshot.overview["ProfitMargin"] == pytest.approx(0.3595, rel=0.001)
     assert snapshot.overview["QuarterlyRevenueGrowthYOY"] == pytest.approx(0.1611, rel=0.001)
+    assert snapshot.overview["EarningsYield"] == 0.032
+    assert snapshot.overview["FreeCashFlowYield"] == 0.024
+    assert snapshot.overview["DebtToEquity"] == 0.42
+    assert snapshot.overview["InterestCoverage"] == 28.5
+    assert snapshot.overview["NetDebtToEBITDA"] == 0.12
+    assert snapshot.overview["CapexToRevenue"] == -0.14
+    assert snapshot.overview["StockBasedCompensationToRevenue"] == 0.03
 
 
 def test_fmp_client_raises_rate_limited_for_429():
@@ -314,3 +349,49 @@ def test_build_score_from_market_snapshot_uses_real_price_and_source():
     assert score.data_source == "alpha_vantage"
     assert len(score.factors) == 5
     assert score.decision.summary
+
+
+def test_build_score_from_market_snapshot_uses_valuation_and_stability_fields():
+    first_day = date(2026, 5, 20)
+    bars = [
+        DailyBar(
+            date=(first_day - timedelta(days=index)).isoformat(),
+            open=100 + (60 - index) * 0.3,
+            high=101 + (60 - index) * 0.3,
+            low=99 + (60 - index) * 0.3,
+            close=100 + (60 - index) * 0.3,
+            adjusted_close=100 + (60 - index) * 0.3,
+            volume=25_000_000,
+        )
+        for index in range(60)
+    ]
+    snapshot = MarketSnapshot(
+        ticker="MSFT",
+        company_name="Microsoft Corporation",
+        last_price=118.0,
+        data_as_of="2026-05-20",
+        daily_bars=bars,
+        overview={
+            "FallbackPERatio": "24.8",
+            "FreeCashFlowYield": "0.041",
+            "DebtToEquity": "0.37",
+            "InterestCoverage": "24.2",
+            "NetDebtToEBITDA": "0.18",
+            "CapexToRevenue": "-0.13",
+            "StockBasedCompensationToRevenue": "0.028",
+            "Beta": "0.89",
+            "MarketCapitalization": "3350000000000",
+        },
+        source="fmp",
+    )
+
+    score = build_score_from_market_snapshot(snapshot)
+
+    valuation = next(factor for factor in score.factors if factor.name == "估值")
+    discipline = next(factor for factor in score.factors if factor.name == "投资纪律/财务稳健")
+    assert valuation.score > 50
+    assert "PE/Forward PE 约 24.8" in valuation.evidence[0]
+    assert any("自由现金流收益率约 4.1%" in item for item in valuation.evidence)
+    assert discipline.score > 60
+    assert any("净债务/EBITDA 约 0.2x" in item for item in discipline.evidence)
+    assert any("利息覆盖约 24.2x" in item for item in discipline.evidence)

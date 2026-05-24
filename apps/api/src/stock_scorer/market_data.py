@@ -184,6 +184,8 @@ class FmpClient:
         )
         profile = _first_row(self._get("profile", symbol=normalized))
         income = _rows(self._get("income-statement", symbol=normalized, period="annual", limit="2"))
+        ratios_ttm = _first_row(self._get("ratios-ttm", symbol=normalized))
+        key_metrics_ttm = _first_row(self._get("key-metrics-ttm", symbol=normalized))
         latest = bars[0]
         company_name = str(profile.get("companyName") or quote.get("name") or normalized)
 
@@ -193,7 +195,7 @@ class FmpClient:
             last_price=_optional_float(quote.get("price")) or latest.adjusted_close,
             data_as_of=latest.date,
             daily_bars=bars,
-            overview=_build_fmp_overview(company_name, profile, income),
+            overview=_build_fmp_overview(company_name, profile, income, ratios_ttm, key_metrics_ttm),
             source="fmp",
         )
 
@@ -441,6 +443,8 @@ def _build_fmp_overview(
     company_name: str,
     profile: dict[str, Any],
     income_rows: list[dict[str, Any]],
+    ratios_ttm: dict[str, Any],
+    key_metrics_ttm: dict[str, Any],
 ) -> dict[str, Any]:
     latest_income = income_rows[0] if income_rows else {}
     previous_income = income_rows[1] if len(income_rows) > 1 else {}
@@ -452,6 +456,15 @@ def _build_fmp_overview(
         "MarketCapitalization": _first_present(profile, "mktCap", "marketCap"),
         "PERatio": _first_present(profile, "pe", "peRatio"),
         "ForwardPE": _first_present(profile, "forwardPE", "forwardPe"),
+        "FallbackPERatio": _first_present(ratios_ttm, "priceToEarningsRatioTTM"),
+        "PriceToFreeCashFlow": _first_present(ratios_ttm, "priceToFreeCashFlowRatioTTM"),
+        "EarningsYield": _first_present(key_metrics_ttm, "earningsYieldTTM"),
+        "FreeCashFlowYield": _first_present(key_metrics_ttm, "freeCashFlowYieldTTM"),
+        "DebtToEquity": _first_present(ratios_ttm, "debtToEquityRatioTTM"),
+        "InterestCoverage": _first_present(ratios_ttm, "interestCoverageRatioTTM"),
+        "NetDebtToEBITDA": _first_present(key_metrics_ttm, "netDebtToEBITDATTM"),
+        "CapexToRevenue": _first_present(key_metrics_ttm, "capexToRevenueTTM"),
+        "StockBasedCompensationToRevenue": _first_present(key_metrics_ttm, "stockBasedCompensationToRevenueTTM"),
         "ProfitMargin": _ratio(latest_net_income, latest_revenue),
         "QuarterlyRevenueGrowthYOY": _growth(latest_income, previous_income, "revenue"),
         "QuarterlyEarningsGrowthYOY": _growth(latest_income, previous_income, "eps"),

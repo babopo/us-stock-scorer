@@ -55,9 +55,7 @@ def _build_factor_scores(snapshot: MarketSnapshot) -> list[FactorScore]:
         FactorScore(
             name="投资纪律/财务稳健",
             score=_discipline_score(overview),
-            evidence=[
-                "第一阶段使用数据源的 profile/overview 字段作为轻量代理，后续需要接入资产负债表和现金流表校验。"
-            ],
+            evidence=_discipline_evidence(overview),
         ),
         FactorScore(
             name="中期动量与风险",
@@ -84,10 +82,17 @@ def _quality_score(overview: dict[str, Any]) -> int:
 
 
 def _valuation_score(overview: dict[str, Any]) -> int:
-    pe = _optional_float(overview.get("ForwardPE")) or _optional_float(overview.get("PERatio"))
-    if pe is None or pe <= 0:
-        return 50
-    return _scale(pe, low=12, high=45, invert=True)
+    scores = []
+    pe = _first_optional_float(overview, "ForwardPE", "PERatio", "FallbackPERatio")
+    earnings_yield = _optional_float(overview.get("EarningsYield"))
+    fcf_yield = _optional_float(overview.get("FreeCashFlowYield"))
+    if pe is not None and pe > 0:
+        scores.append(_scale(pe, low=12, high=45, invert=True))
+    if earnings_yield is not None:
+        scores.append(_scale(earnings_yield, low=0.02, high=0.08))
+    if fcf_yield is not None:
+        scores.append(_scale(fcf_yield, low=0.00, high=0.06))
+    return round(mean(scores)) if scores else 50
 
 
 def _growth_score(overview: dict[str, Any]) -> int:
@@ -102,6 +107,26 @@ def _growth_score(overview: dict[str, Any]) -> int:
 
 
 def _discipline_score(overview: dict[str, Any]) -> int:
+    scores = []
+    debt_to_equity = _optional_float(overview.get("DebtToEquity"))
+    interest_coverage = _optional_float(overview.get("InterestCoverage"))
+    net_debt_to_ebitda = _optional_float(overview.get("NetDebtToEBITDA"))
+    capex_to_revenue = _optional_float(overview.get("CapexToRevenue"))
+    sbc_to_revenue = _optional_float(overview.get("StockBasedCompensationToRevenue"))
+
+    if debt_to_equity is not None:
+        scores.append(_scale(debt_to_equity, low=0.0, high=2.5, invert=True))
+    if interest_coverage is not None:
+        scores.append(_scale(interest_coverage, low=2.0, high=25.0))
+    if net_debt_to_ebitda is not None:
+        scores.append(_scale(net_debt_to_ebitda, low=0.0, high=4.0, invert=True))
+    if capex_to_revenue is not None:
+        scores.append(_scale(abs(capex_to_revenue), low=0.03, high=0.25, invert=True))
+    if sbc_to_revenue is not None:
+        scores.append(_scale(sbc_to_revenue, low=0.0, high=0.10, invert=True))
+    if scores:
+        return round(mean(scores))
+
     beta = _optional_float(overview.get("Beta"))
     market_cap = _optional_float(overview.get("MarketCapitalization"))
     scores = [60]
@@ -183,10 +208,19 @@ def _quality_evidence(overview: dict[str, Any]) -> list[str]:
 
 
 def _valuation_evidence(overview: dict[str, Any]) -> list[str]:
-    pe = _optional_float(overview.get("ForwardPE")) or _optional_float(overview.get("PERatio"))
-    if pe is None or pe <= 0:
+    pe = _first_optional_float(overview, "ForwardPE", "PERatio", "FallbackPERatio")
+    earnings_yield = _optional_float(overview.get("EarningsYield"))
+    fcf_yield = _optional_float(overview.get("FreeCashFlowYield"))
+    evidence = []
+    if pe is not None and pe > 0:
+        evidence.append(f"PE/Forward PE 约 {pe:.1f}，低估值给更高分，高估值降权。")
+    if earnings_yield is not None:
+        evidence.append(f"盈利收益率约 {earnings_yield:.1%}。")
+    if fcf_yield is not None:
+        evidence.append(f"自由现金流收益率约 {fcf_yield:.1%}。")
+    if not evidence:
         return ["数据源未返回有效 PE，估值分使用中性基准。"]
-    return [f"PE/Forward PE 约 {pe:.1f}，低估值给更高分，高估值降权。"]
+    return evidence
 
 
 def _growth_evidence(overview: dict[str, Any]) -> list[str]:
@@ -208,6 +242,26 @@ def _momentum_evidence(bars: list[DailyBar]) -> list[str]:
     return [f"近 20 个交易日复权价格涨跌幅约 {return_20:.1%}。"]
 
 
+def _discipline_evidence(overview: dict[str, Any]) -> list[str]:
+    debt_to_equity = _optional_float(overview.get("DebtToEquity"))
+    interest_coverage = _optional_float(overview.get("InterestCoverage"))
+    net_debt_to_ebitda = _optional_float(overview.get("NetDebtToEBITDA"))
+    capex_to_revenue = _optional_float(overview.get("CapexToRevenue"))
+    sbc_to_revenue = _optional_float(overview.get("StockBasedCompensationToRevenue"))
+    evidence = []
+    if net_debt_to_ebitda is not None:
+        evidence.append(f"净债务/EBITDA 约 {net_debt_to_ebitda:.1f}x。")
+    if debt_to_equity is not None:
+        evidence.append(f"债务/股本约 {debt_to_equity:.2f}x。")
+    if interest_coverage is not None:
+        evidence.append(f"利息覆盖约 {interest_coverage:.1f}x。")
+    if capex_to_revenue is not None:
+        evidence.append(f"资本开支/收入约 {abs(capex_to_revenue):.1%}。")
+    if sbc_to_revenue is not None:
+        evidence.append(f"股权激励/收入约 {sbc_to_revenue:.1%}。")
+    return evidence or ["数据源未返回资产负债表/现金流代理字段，财务稳健分使用轻量基准。"]
+
+
 def _optional_float(value: Any) -> float | None:
     if value in (None, "", "None", "-"):
         return None
@@ -215,6 +269,14 @@ def _optional_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _first_optional_float(overview: dict[str, Any], *keys: str) -> float | None:
+    for key in keys:
+        value = _optional_float(overview.get(key))
+        if value is not None:
+            return value
+    return None
 
 
 def _scale(value: float, low: float, high: float, invert: bool = False) -> int:

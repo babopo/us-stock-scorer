@@ -76,7 +76,7 @@ export FMP_API_KEY=your_api_key
 uvicorn stock_scorer.app:app --reload --port 8000
 ```
 
-当前 FMP 接入会拉取 `quote`、`historical-price-eod/full`、`profile` 和 `income-statement`，用 EOD 日线、公司 profile、利润率和增长代理生成第一阶段评分。没有 key、触发限流或上游不可用时，API 会返回 503/502，并保留 fixture 作为默认开发模式。
+当前 FMP 接入会拉取 `quote`、`historical-price-eod/full`、`profile`、`income-statement`、`ratios-ttm` 和 `key-metrics-ttm`，用 EOD 日线、公司 profile、利润率、增长、估值和财务稳健代理生成第一阶段评分。没有 key、触发限流或上游不可用时，API 会返回 503/502，并保留 fixture 作为默认开发模式。
 
 如果 FMP 免费额度或 ticker 覆盖不足，可以配置有序 fallback 链。`STOCK_SCORER_DATA_SOURCES` 存在时会优先于单一的 `STOCK_SCORER_DATA_SOURCE`：
 
