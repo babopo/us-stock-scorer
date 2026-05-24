@@ -120,17 +120,17 @@ export function App({ client }: AppProps) {
 
 function AdminDashboard({ client, onLogout }: { client: StockScorerClient; onLogout(): void }) {
   return (
-    <main className="admin-shell">
+    <main className="admin-shell product-shell">
       <header className="topbar">
         <div>
           <p className="eyebrow">US Stock Scorer</p>
-          <h1>后台管理</h1>
+          <h1>美股评分工作台</h1>
         </div>
         <div className="topbar-actions">
-          <nav aria-label="Admin sections">
-            <a href="#score-debugger-title">Score</a>
-            <a href="#provider-status-title">Providers</a>
-            <a href="#operations-title">Ops</a>
+          <nav aria-label="Workspace sections">
+            <a href="#score-debugger-title">六维评分</a>
+            <a href="#provider-status-title">数据源</a>
+            <a href="#operations-title">数据操作</a>
           </nav>
           <button className="logout-button" type="button" onClick={onLogout}>
             <LogOut aria-hidden="true" size={17} />
@@ -183,11 +183,11 @@ function LoginPanel({
         <div className="section-heading">
           <div>
             <p className="eyebrow">US Stock Scorer</p>
-            <h1 id="login-title">后台登录</h1>
+            <h1 id="login-title">工作台登录</h1>
           </div>
           <span className="status-pill">
             <ShieldCheck aria-hidden="true" size={16} />
-            Admin
+            Secure access
           </span>
         </div>
 

@@ -25,7 +25,7 @@ export function ProviderStatus({ client }: ProviderStatusProps) {
     <section className="workspace-band" aria-labelledby="provider-status-title">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Operations</p>
+          <p className="eyebrow">Market data</p>
           <h2 id="provider-status-title">数据源状态</h2>
         </div>
         <button className="icon-button" type="button" onClick={() => void query.refetch()} aria-label="Refresh provider status">
@@ -33,8 +33,8 @@ export function ProviderStatus({ client }: ProviderStatusProps) {
         </button>
       </div>
 
-      {query.isError ? <div className="error-panel">Provider status endpoint unavailable</div> : null}
-      {query.isPending ? <div className="empty-state">Loading provider status...</div> : null}
+      {query.isError ? <div className="error-panel">数据源状态接口暂不可用</div> : null}
+      {query.isPending ? <div className="empty-state">正在读取数据源状态...</div> : null}
 
       {query.data ? (
         <div className="provider-table" role="table" aria-label="Provider status">

@@ -19,6 +19,26 @@ const sampleScore: StockScoreResponse = {
       name: "质量/盈利",
       score: 90,
       evidence: ["ROIC 强", "利润率稳定"]
+    },
+    {
+      name: "估值",
+      score: 62,
+      evidence: ["估值高于市场中位数"]
+    },
+    {
+      name: "成长与预期",
+      score: 84,
+      evidence: ["云业务增长稳定"]
+    },
+    {
+      name: "投资纪律/财务稳健",
+      score: 86,
+      evidence: ["资产负债表稳健"]
+    },
+    {
+      name: "中期动量与风险",
+      score: 78,
+      evidence: ["相对 QQQ 保持强势"]
     }
   ],
   decision: {
@@ -41,10 +61,12 @@ describe("ScoreDebugger", () => {
     renderWithQueryClient(<ScoreDebugger client={client} />);
 
     fireEvent.change(screen.getByLabelText("Ticker"), { target: { value: "msft" } });
-    fireEvent.click(screen.getByRole("button", { name: "Run score" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成评分" }));
 
     await waitFor(() => expect(screen.getByText("MSFT")).toBeInTheDocument());
     expect(screen.getByText("Microsoft Corporation")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "六维图" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /MSFT 六维评分雷达图/ })).toBeInTheDocument();
     expect(screen.getByText("82")).toBeInTheDocument();
     expect(screen.getByText("ROIC 强")).toBeInTheDocument();
     expect(screen.getByText("突破前高")).toBeInTheDocument();

@@ -23,12 +23,12 @@ describe("OperationsPanel", () => {
     renderWithQueryClient(<OperationsPanel client={client} />);
 
     fireEvent.change(screen.getByLabelText("Ops ticker"), { target: { value: "msft" } });
-    fireEvent.click(screen.getByRole("button", { name: "Inspect raw data" }));
+    fireEvent.click(screen.getByRole("button", { name: "查看原始数据" }));
 
     await waitFor(() => expect(screen.getByText("Microsoft Corporation")).toBeInTheDocument());
     expect(client.getTickerRawData).toHaveBeenCalledWith("MSFT");
 
-    fireEvent.click(screen.getByRole("button", { name: "Refresh ticker" }));
+    fireEvent.click(screen.getByRole("button", { name: "刷新标的" }));
 
     await waitFor(() => expect(screen.getByText("completed")).toBeInTheDocument());
     expect(client.refreshTicker).toHaveBeenCalledWith("MSFT");

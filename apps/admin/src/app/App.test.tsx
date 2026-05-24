@@ -15,7 +15,7 @@ describe("App auth gate", () => {
   it("shows the login form when there is no stored admin session", () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "后台登录" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "工作台登录" })).toBeInTheDocument();
     expect(screen.getByLabelText("Username")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
   });
@@ -29,7 +29,7 @@ describe("App auth gate", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-password" } });
     fireEvent.click(screen.getByRole("button", { name: "Log in" }));
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "评分调试" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "六维评分雷达" })).toBeInTheDocument());
     expect(client.loginAdmin).toHaveBeenCalledWith("admin", "secret-password");
     expect(sessionStorage.getItem(STORAGE_KEY)).toBe("admin-session-token");
   });
@@ -48,7 +48,7 @@ describe("App auth gate", () => {
 
     render(<App client={client} />);
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "后台登录" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "工作台登录" })).toBeInTheDocument());
     expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
@@ -58,10 +58,10 @@ describe("App auth gate", () => {
 
     render(<App client={client} />);
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "评分调试" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "六维评分雷达" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Log out" }));
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "后台登录" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "工作台登录" })).toBeInTheDocument());
     expect(client.logoutAdmin).toHaveBeenCalled();
     expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull();
   });
