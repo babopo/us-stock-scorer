@@ -503,9 +503,98 @@ pre {
   gap: 12px;
 }
 
+.research-grid,
+.research-list {
+  display: grid;
+  gap: 12px;
+}
+
+.research-row {
+  display: grid;
+  gap: 8px;
+  border-bottom: 1px solid rgba(150, 161, 179, 0.14);
+  padding-bottom: 10px;
+}
+
+.research-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.research-row strong {
+  display: block;
+  color: #fbbf24;
+  font-family: "Fira Code", Consolas, monospace;
+}
+
+.research-row span {
+  color: #9aa7b8;
+  font-size: 13px;
+}
+
+.research-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.research-metrics span,
+.research-result {
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  border-radius: 8px;
+  background: rgba(45, 212, 191, 0.07);
+  color: #b8fff4;
+  padding: 7px 8px;
+}
+
+.research-result {
+  margin-bottom: 14px;
+}
+
 .ops-form {
   display: grid;
   align-items: stretch;
+}
+
+.research-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.research-form label {
+  align-self: center;
+  color: #d8dee9;
+  font-weight: 700;
+}
+
+.research-form input {
+  width: 100%;
+  color: #f8fafc;
+  background: #0b0f16;
+  border: 1px solid rgba(150, 161, 179, 0.35);
+  border-radius: 8px;
+  padding: 10px 11px;
+}
+
+.research-form button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 44px;
+  color: #111827;
+  background: #f59e0b;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.research-form button:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .ops-ticker-control,
@@ -745,7 +834,9 @@ li {
   }
 
   .ops-ticker-control,
-  .ops-buttons {
+  .ops-buttons,
+  .research-form,
+  .research-metrics {
     grid-template-columns: 1fr;
   }
 

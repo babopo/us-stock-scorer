@@ -1,14 +1,21 @@
 import os
+from dataclasses import asdict
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 
 from stock_scorer.admin_models import (
+    BacktestRunRequest,
+    BacktestRunResponse,
+    BacktestRunsResponse,
+    EvolutionRunRequest,
+    EvolutionRunResponse,
     ProviderHealth,
     ProviderStatusResponse,
     RawTickerDataResponse,
     RefreshTickerResponse,
+    StrategyVersionsResponse,
 )
 from stock_scorer.auth import (
     AdminLoginRequest,
@@ -30,7 +37,10 @@ from stock_scorer.market_data import (
     MarketDataUnavailable,
 )
 from stock_scorer.models import StockScoreResponse
+from stock_scorer.backtesting import BacktestRequest, run_backtest
+from stock_scorer.research_store import initialize_research_store, list_backtest_runs, list_strategy_versions, open_research_connection
 from stock_scorer.score_service import get_active_source_label, get_configured_data_sources, get_stock_score
+from stock_scorer.strategy_evolution import EvolutionRequest, evolve_strategy
 
 
 app = FastAPI(title="US Stock Scorer API", version="0.1.0", docs_url=None, redoc_url=None, openapi_url=None)
@@ -141,3 +151,47 @@ def admin_ticker_raw_data(ticker: str) -> RawTickerDataResponse:
 def admin_refresh_ticker(ticker: str) -> RefreshTickerResponse:
     normalized = ticker.upper()
     return RefreshTickerResponse(ticker=normalized, status="completed", score=stock_score(normalized))
+
+
+@app.get("/v1/admin/backtests/runs", response_model=BacktestRunsResponse, dependencies=[Depends(require_admin_access)])
+def admin_list_backtest_runs() -> BacktestRunsResponse:
+    initialize_research_store()
+    with open_research_connection() as connection:
+        runs = list_backtest_runs(connection)
+    return BacktestRunsResponse(runs=[asdict(run) for run in runs])
+
+
+@app.post("/v1/admin/backtests/runs", response_model=BacktestRunResponse, dependencies=[Depends(require_admin_access)])
+def admin_run_backtest(payload: BacktestRunRequest) -> BacktestRunResponse:
+    summary = run_backtest(
+        BacktestRequest(
+            tickers=payload.tickers,
+            start_date=payload.start_date,
+            end_date=payload.end_date,
+            initial_cash=payload.initial_cash,
+        )
+    )
+    return BacktestRunResponse(**asdict(summary))
+
+
+@app.get("/v1/admin/strategies", response_model=StrategyVersionsResponse, dependencies=[Depends(require_admin_access)])
+def admin_list_strategies() -> StrategyVersionsResponse:
+    initialize_research_store()
+    with open_research_connection() as connection:
+        strategies = list_strategy_versions(connection)
+    return StrategyVersionsResponse(strategies=[asdict(strategy) for strategy in strategies])
+
+
+@app.post("/v1/admin/strategies/evolve", response_model=EvolutionRunResponse, dependencies=[Depends(require_admin_access)])
+def admin_evolve_strategy(payload: EvolutionRunRequest) -> EvolutionRunResponse:
+    result = evolve_strategy(
+        EvolutionRequest(
+            tickers=payload.tickers,
+            training_start_date=payload.training_start_date,
+            training_end_date=payload.training_end_date,
+            validation_start_date=payload.validation_start_date,
+            validation_end_date=payload.validation_end_date,
+            initial_cash=payload.initial_cash,
+        )
+    )
+    return EvolutionRunResponse(**result.__dict__)

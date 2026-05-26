@@ -41,6 +41,7 @@ if [ ! -x "${APP_ROOT}/apps/api/.venv/bin/uvicorn" ]; then
 fi
 
 systemctl stop us-stock-scorer-api.service >/dev/null 2>&1 || true
+systemctl stop us-stock-scorer-backtest.timer >/dev/null 2>&1 || true
 
 mapfile -t existing_api_pids < <(
   pgrep -u "${APP_USER}" -f "stock_scorer.app:app.*--port 8000" || true
@@ -51,6 +52,7 @@ fi
 
 runuser -u "${APP_USER}" -- bash -lc "cd '${APP_ROOT}' && pnpm --filter @stock-scorer/api-client build"
 runuser -u "${APP_USER}" -- bash -lc "cd '${APP_ROOT}' && pnpm --filter @stock-scorer/admin build"
+runuser -u "${APP_USER}" -- bash -lc "cd '${APP_ROOT}/apps/api' && .venv/bin/python -m pip install -e ."
 
 rm -rf "${WEB_ROOT}"
 mkdir -p "${WEB_ROOT}"
@@ -64,6 +66,10 @@ sed "s/__SERVER_NAME__/${SERVER_NAME}/g" \
 
 install -m 0644 "${APP_ROOT}/deploy/systemd/us-stock-scorer-api.service" \
   /etc/systemd/system/us-stock-scorer-api.service
+install -m 0644 "${APP_ROOT}/deploy/systemd/us-stock-scorer-backtest.service" \
+  /etc/systemd/system/us-stock-scorer-backtest.service
+install -m 0644 "${APP_ROOT}/deploy/systemd/us-stock-scorer-backtest.timer" \
+  /etc/systemd/system/us-stock-scorer-backtest.timer
 
 if [ -d /etc/nginx/conf.d ]; then
   install -m 0644 "${TMP_NGINX_CONF}" "/etc/nginx/conf.d/${NGINX_CONF_NAME}"
@@ -77,6 +83,7 @@ fi
 
 systemctl daemon-reload
 systemctl enable --now us-stock-scorer-api.service
+systemctl enable --now us-stock-scorer-backtest.timer
 systemctl enable --now nginx
 nginx -t
 systemctl reload nginx

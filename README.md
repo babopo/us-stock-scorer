@@ -33,8 +33,9 @@ us-stock-scorer/
 - 共享 TypeScript API client，统一封装 Web `fetch` transport、ticker 规范化和错误映射。
 - React/Vite Web 管理后台，用于本地评分调试、数据源状态检查、fixture 原始数据查看和单只 ticker 刷新；前端路线以 Web 为主。
 - 管理端 FastAPI 接口：`/v1/admin/providers/status`、`/v1/admin/stocks/{ticker}/raw-data`、`/v1/admin/stocks/{ticker}/refresh`。
+- 研究闭环：SQLite 研究库、历史日线回测、保守参数网格演化、Admin 回测面板和 systemd 定时任务。
 
-下一阶段重点是真实数据源的原始数据排查能力、每日评分快照落库和更完整的服务器部署文档。
+下一阶段重点是真实数据源的历史覆盖率、候选策略人工晋升流程和更完整的回测报表。
 当前服务端已经要求所有 `/v1` 业务接口携带 Bearer token；`/health` 保持公开用于健康检查。
 
 ## Local Development
@@ -138,3 +139,27 @@ cd ../..
 pnpm typecheck
 pnpm test
 ```
+
+## Backtesting and Strategy Evolution
+
+研究库默认写入 `apps/api/data/stock_scorer.sqlite3`，可通过 `STOCK_SCORER_DB_PATH` 覆盖。首次运行会自动建表并创建 `default-v1` active 策略版本。
+
+手动回测：
+
+```bash
+cd apps/api
+. .venv/bin/activate
+stock-scorer backtest run --tickers MSFT,NVDA --start-date 2026-01-01 --end-date 2026-03-31
+```
+
+手动生成候选策略：
+
+```bash
+stock-scorer evolve run --tickers MSFT,NVDA \
+  --training-start-date 2025-09-01 \
+  --training-end-date 2026-01-31 \
+  --validation-start-date 2026-02-01 \
+  --validation-end-date 2026-03-31
+```
+
+生产部署会安装并启用 `us-stock-scorer-backtest.timer`，默认在北京时间周二到周六 06:30 运行一次回测和策略演化。可在 `apps/api/.env` 中设置 `BACKTEST_TICKERS=MSFT,NVDA,AAPL` 覆盖默认标的池。

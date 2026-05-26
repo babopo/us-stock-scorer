@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from stock_scorer.app import app
 from stock_scorer.market_data import DailyBar, MarketDataRateLimited, MarketSnapshot
+from stock_scorer.research_store import initialize_research_store, open_research_connection, upsert_historical_bars
 from stock_scorer import score_service
 
 
@@ -256,6 +257,74 @@ def test_admin_provider_status_includes_finnhub_fallback(monkeypatch):
     assert payload["providers"]["finnhub"]["active"] is True
     assert payload["providers"]["alpha_vantage"]["active"] is True
     assert "secret-finnhub-key" not in response.text
+
+
+def test_admin_backtest_routes_require_admin_and_return_run_summary(tmp_path, monkeypatch):
+    monkeypatch.setenv("STOCK_SCORER_DB_PATH", str(tmp_path / "research.sqlite3"))
+    initialize_research_store()
+    with open_research_connection() as connection:
+        upsert_historical_bars(connection, "MSFT", _api_backtest_bars())
+
+    admin_headers = admin_static_auth_headers(monkeypatch)
+    rejected = client.get("/v1/admin/backtests/runs", headers=read_auth_headers(monkeypatch))
+    response = client.post(
+        "/v1/admin/backtests/runs",
+        headers=admin_headers,
+        json={"tickers": ["MSFT"], "start_date": "2026-01-25", "end_date": "2026-03-15", "initial_cash": 10000},
+    )
+    list_response = client.get("/v1/admin/backtests/runs", headers=admin_headers)
+
+    assert rejected.status_code == 403
+    assert response.status_code == 200
+    assert response.json()["metrics"]["trade_count"] >= 1
+    assert list_response.status_code == 200
+    assert list_response.json()["runs"][0]["run_id"] == response.json()["run_id"]
+
+
+def test_admin_strategy_routes_return_versions_and_evolution_candidate(tmp_path, monkeypatch):
+    monkeypatch.setenv("STOCK_SCORER_DB_PATH", str(tmp_path / "research.sqlite3"))
+    initialize_research_store()
+    with open_research_connection() as connection:
+        upsert_historical_bars(connection, "MSFT", _api_backtest_bars())
+
+    versions_response = client.get("/v1/admin/strategies", headers=admin_static_auth_headers(monkeypatch))
+    evolution_response = client.post(
+        "/v1/admin/strategies/evolve",
+        headers=admin_static_auth_headers(monkeypatch),
+        json={
+            "tickers": ["MSFT"],
+            "training_start_date": "2026-01-25",
+            "training_end_date": "2026-02-20",
+            "validation_start_date": "2026-02-21",
+            "validation_end_date": "2026-03-20",
+            "initial_cash": 10000,
+        },
+    )
+
+    assert versions_response.status_code == 200
+    assert versions_response.json()["strategies"][0]["status"] == "active"
+    assert evolution_response.status_code == 200
+    assert evolution_response.json()["candidate_strategy_id"] is not None
+
+
+def _api_backtest_bars() -> list[DailyBar]:
+    bars = []
+    for index in range(90):
+        month = 1 + index // 30
+        day = index % 30 + 1
+        price = 100 + index
+        bars.append(
+            DailyBar(
+                date=f"2026-{month:02d}-{day:02d}",
+                open=price - 0.5,
+                high=price + 1,
+                low=price - 1,
+                close=price,
+                adjusted_close=price,
+                volume=1_000_000 + index,
+            )
+        )
+    return bars
 
 
 def test_score_endpoint_falls_back_to_finnhub_when_fmp_is_rate_limited(monkeypatch):

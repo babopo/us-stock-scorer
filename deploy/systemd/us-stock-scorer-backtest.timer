@@ -1,0 +1,10 @@
+[Unit]
+Description=Run US Stock Scorer backtest and strategy evolution after market close
+
+[Timer]
+OnCalendar=Tue..Sat 06:30:00
+Persistent=true
+Unit=us-stock-scorer-backtest.service
+
+[Install]
+WantedBy=timers.target

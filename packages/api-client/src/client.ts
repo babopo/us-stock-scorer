@@ -5,13 +5,19 @@ import type {
   AdminSessionResponse,
   ApiRequest,
   ApiResponse,
+  BacktestRunRequest,
+  BacktestRunResponse,
+  BacktestRunsResponse,
+  EvolutionRunRequest,
+  EvolutionRunResponse,
   HeaderMap,
   HttpMethod,
   QueryParams,
   RefreshTickerResponse,
   StockScorerClient,
   StockScorerClientOptions,
-  StockScoreResponse
+  StockScoreResponse,
+  StrategyVersionsResponse
 } from "./types";
 import { joinUrl } from "./url";
 
@@ -112,6 +118,26 @@ export function createStockScorerClient(options: StockScorerClientOptions): Stoc
 
     logoutAdmin() {
       return request<AdminLogoutResponse>("POST", "/v1/admin/auth/logout");
+    },
+
+    getBacktestRuns() {
+      return request<BacktestRunsResponse>("GET", "/v1/admin/backtests/runs");
+    },
+
+    runBacktest(backtestRequest: BacktestRunRequest) {
+      return request<BacktestRunResponse>("POST", "/v1/admin/backtests/runs", {
+        body: backtestRequest
+      });
+    },
+
+    getStrategyVersions() {
+      return request<StrategyVersionsResponse>("GET", "/v1/admin/strategies");
+    },
+
+    evolveStrategy(evolutionRequest: EvolutionRunRequest) {
+      return request<EvolutionRunResponse>("POST", "/v1/admin/strategies/evolve", {
+        body: evolutionRequest
+      });
     }
   };
 }

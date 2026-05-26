@@ -46,9 +46,13 @@ sudo env SERVER_NAME=stocks.example.com bash deploy/install-production.sh
 
 ```bash
 sudo systemctl status us-stock-scorer-api.service
+sudo systemctl status us-stock-scorer-backtest.timer
 sudo systemctl restart us-stock-scorer-api.service
+sudo systemctl start us-stock-scorer-backtest.service
 sudo systemctl reload nginx
 ```
+
+`us-stock-scorer-backtest.timer` runs the CLI after the US market close window and writes results to `STOCK_SCORER_DB_PATH` or `apps/api/data/stock_scorer.sqlite3`.
 
 ## URLs
 

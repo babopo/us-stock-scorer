@@ -137,3 +137,82 @@ test("admin auth methods call login, session, and logout endpoints", async () =>
   assert.equal(requests[2]?.method, "POST");
   assert.equal(requests[2]?.url, "http://127.0.0.1:8000/v1/admin/auth/logout");
 });
+
+test("backtest and strategy admin methods call research endpoints", async () => {
+  const requests: ApiRequest[] = [];
+  const client = createStockScorerClient({
+    baseUrl: "http://127.0.0.1:8000",
+    transport: async <T = unknown>(request: ApiRequest) => {
+      requests.push(request);
+      if (request.url.endsWith("/backtests/runs") && request.method === "GET") {
+        return { status: 200, headers: {}, data: { runs: [] } as T };
+      }
+      if (request.url.endsWith("/strategies") && request.method === "GET") {
+        return { status: 200, headers: {}, data: { strategies: [] } as T };
+      }
+      if (request.url.endsWith("/strategies/evolve")) {
+        return {
+          status: 200,
+          headers: {},
+          data: {
+            candidate_strategy_id: 2,
+            training_run_id: 3,
+            validation_run_id: 4,
+            active_validation_return: 0.04,
+            validation_total_return: 0.06,
+            max_drawdown: 0.02,
+            message: "Candidate strategy generated."
+          } as T
+        };
+      }
+      return {
+        status: 200,
+        headers: {},
+        data: {
+          run_id: 1,
+          strategy_id: 1,
+          tickers: ["MSFT"],
+          start_date: "2026-01-01",
+          end_date: "2026-03-01",
+          initial_cash: 10000,
+          metrics: {
+            total_return: 0.05,
+            annualized_return: 0.25,
+            max_drawdown: 0.01,
+            win_rate: 1,
+            trade_count: 1,
+            average_holding_days: 12,
+            buy_hold_return: 0.04
+          },
+          trades: []
+        } as T
+      };
+    }
+  });
+
+  await client.getBacktestRuns();
+  await client.runBacktest({ tickers: ["MSFT"], start_date: "2026-01-01", end_date: "2026-03-01", initial_cash: 10000 });
+  await client.getStrategyVersions();
+  await client.evolveStrategy({
+    tickers: ["MSFT"],
+    training_start_date: "2026-01-01",
+    training_end_date: "2026-02-01",
+    validation_start_date: "2026-02-02",
+    validation_end_date: "2026-03-01",
+    initial_cash: 10000
+  });
+
+  assert.equal(requests[0]?.method, "GET");
+  assert.equal(requests[0]?.url, "http://127.0.0.1:8000/v1/admin/backtests/runs");
+  assert.equal(requests[1]?.method, "POST");
+  assert.equal(requests[1]?.url, "http://127.0.0.1:8000/v1/admin/backtests/runs");
+  assert.deepEqual(requests[1]?.body, {
+    tickers: ["MSFT"],
+    start_date: "2026-01-01",
+    end_date: "2026-03-01",
+    initial_cash: 10000
+  });
+  assert.equal(requests[2]?.url, "http://127.0.0.1:8000/v1/admin/strategies");
+  assert.equal(requests[3]?.method, "POST");
+  assert.equal(requests[3]?.url, "http://127.0.0.1:8000/v1/admin/strategies/evolve");
+});

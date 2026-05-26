@@ -5,6 +5,7 @@ import { LogOut, ShieldCheck } from "lucide-react";
 import { isApiError, type StockScorerClient } from "@stock-scorer/api-client";
 
 import { createDefaultAdminApiClient } from "../api/client";
+import { BacktestingPanel } from "../features/backtesting/BacktestingPanel";
 import { OperationsPanel } from "../features/operations/OperationsPanel";
 import { ProviderStatus } from "../features/providers/ProviderStatus";
 import { ScoreDebugger } from "../features/score/ScoreDebugger";
@@ -129,6 +130,7 @@ function AdminDashboard({ client, onLogout }: { client: StockScorerClient; onLog
         <div className="topbar-actions">
           <nav aria-label="Workspace sections">
             <a href="#score-debugger-title">六维评分</a>
+            <a href="#backtesting-title">回测</a>
             <a href="#provider-status-title">数据源</a>
             <a href="#operations-title">数据操作</a>
           </nav>
@@ -141,6 +143,7 @@ function AdminDashboard({ client, onLogout }: { client: StockScorerClient; onLog
       <div className="workspace">
         <ScoreDebugger client={client} />
         <div className="side-stack">
+          <BacktestingPanel client={client} />
           <ProviderStatus client={client} />
           <OperationsPanel client={client} />
         </div>

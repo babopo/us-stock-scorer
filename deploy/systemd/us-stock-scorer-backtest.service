@@ -1,0 +1,12 @@
+[Unit]
+Description=US Stock Scorer scheduled backtest and strategy evolution
+After=network-online.target us-stock-scorer-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=admin
+Group=admin
+WorkingDirectory=/home/admin/us-stock-scorer/apps/api
+EnvironmentFile=-/home/admin/us-stock-scorer/apps/api/.env
+ExecStart=/bin/bash -lc '/home/admin/us-stock-scorer/apps/api/.venv/bin/stock-scorer backtest run --tickers "${BACKTEST_TICKERS:-MSFT,NVDA,AAPL,GOOGL,AMZN}" && /home/admin/us-stock-scorer/apps/api/.venv/bin/stock-scorer evolve run --tickers "${BACKTEST_TICKERS:-MSFT,NVDA,AAPL,GOOGL,AMZN}"'

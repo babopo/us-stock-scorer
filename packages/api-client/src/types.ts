@@ -105,6 +105,102 @@ export interface AdminLogoutResponse {
   status: "logged_out";
 }
 
+export interface BacktestRunRequest {
+  tickers: string[];
+  start_date: string;
+  end_date: string;
+  initial_cash?: number;
+}
+
+export interface BacktestMetrics {
+  total_return: number;
+  annualized_return: number;
+  max_drawdown: number;
+  win_rate: number;
+  trade_count: number;
+  average_holding_days: number;
+  buy_hold_return: number;
+}
+
+export interface BacktestTrade {
+  ticker: string;
+  entry_date: string;
+  exit_date: string;
+  entry_price: number;
+  exit_price: number;
+  shares: number;
+  return_pct: number;
+  holding_days: number;
+  exit_reason: string;
+}
+
+export interface BacktestRunResponse {
+  run_id: number;
+  strategy_id: number;
+  tickers: string[];
+  start_date: string;
+  end_date: string;
+  initial_cash: number;
+  metrics: BacktestMetrics;
+  trades: BacktestTrade[];
+}
+
+export interface StoredBacktestRun {
+  run_id: number;
+  strategy_id: number;
+  tickers: string[];
+  start_date: string;
+  end_date: string;
+  initial_cash: number;
+  created_at: string;
+  total_return: number;
+  max_drawdown: number;
+  win_rate: number;
+  trade_count: number;
+  buy_hold_return: number;
+}
+
+export interface BacktestRunsResponse {
+  runs: StoredBacktestRun[];
+}
+
+export interface StrategyVersion {
+  strategy_id: number;
+  name: string;
+  status: "active" | "candidate" | "archived";
+  medium_entry_threshold: number;
+  short_entry_threshold: number;
+  stop_loss_pct: number;
+  take_profit_pct: number;
+  max_holding_days: number;
+  position_size_pct: number;
+  created_at: string;
+  notes: string;
+}
+
+export interface StrategyVersionsResponse {
+  strategies: StrategyVersion[];
+}
+
+export interface EvolutionRunRequest {
+  tickers: string[];
+  training_start_date: string;
+  training_end_date: string;
+  validation_start_date: string;
+  validation_end_date: string;
+  initial_cash?: number;
+}
+
+export interface EvolutionRunResponse {
+  candidate_strategy_id: number | null;
+  training_run_id: number | null;
+  validation_run_id: number | null;
+  active_validation_return: number;
+  validation_total_return: number;
+  max_drawdown: number;
+  message: string;
+}
+
 export interface StockScorerClientOptions {
   baseUrl?: string;
   transport: ApiTransport;
@@ -126,4 +222,8 @@ export interface StockScorerClient {
   loginAdmin(username: string, password: string): Promise<AdminLoginResponse>;
   getAdminSession(): Promise<AdminSessionResponse>;
   logoutAdmin(): Promise<AdminLogoutResponse>;
+  getBacktestRuns(): Promise<BacktestRunsResponse>;
+  runBacktest(request: BacktestRunRequest): Promise<BacktestRunResponse>;
+  getStrategyVersions(): Promise<StrategyVersionsResponse>;
+  evolveStrategy(request: EvolutionRunRequest): Promise<EvolutionRunResponse>;
 }
