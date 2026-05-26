@@ -11,6 +11,9 @@ from stock_scorer.admin_models import (
     BacktestRunsResponse,
     EvolutionRunRequest,
     EvolutionRunResponse,
+    HistorySyncRequestModel,
+    HistorySyncResponse,
+    HistorySyncRunsResponse,
     ProviderHealth,
     ProviderStatusResponse,
     RawTickerDataResponse,
@@ -38,7 +41,14 @@ from stock_scorer.market_data import (
 )
 from stock_scorer.models import StockScoreResponse
 from stock_scorer.backtesting import BacktestRequest, run_backtest
-from stock_scorer.research_store import initialize_research_store, list_backtest_runs, list_strategy_versions, open_research_connection
+from stock_scorer.history_sync import HistorySyncRequest, sync_historical_data
+from stock_scorer.research_store import (
+    initialize_research_store,
+    list_backtest_runs,
+    list_history_sync_runs,
+    list_strategy_versions,
+    open_research_connection,
+)
 from stock_scorer.score_service import get_active_source_label, get_configured_data_sources, get_stock_score
 from stock_scorer.strategy_evolution import EvolutionRequest, evolve_strategy
 
@@ -195,3 +205,17 @@ def admin_evolve_strategy(payload: EvolutionRunRequest) -> EvolutionRunResponse:
         )
     )
     return EvolutionRunResponse(**result.__dict__)
+
+
+@app.get("/v1/admin/history/syncs", response_model=HistorySyncRunsResponse, dependencies=[Depends(require_admin_access)])
+def admin_list_history_syncs() -> HistorySyncRunsResponse:
+    initialize_research_store()
+    with open_research_connection() as connection:
+        runs = list_history_sync_runs(connection)
+    return HistorySyncRunsResponse(runs=[asdict(run) for run in runs])
+
+
+@app.post("/v1/admin/history/sync", response_model=HistorySyncResponse, dependencies=[Depends(require_admin_access)])
+def admin_sync_history(payload: HistorySyncRequestModel) -> HistorySyncResponse:
+    result = sync_historical_data(HistorySyncRequest(tickers=payload.tickers, end_date=payload.end_date))
+    return HistorySyncResponse(**asdict(result))

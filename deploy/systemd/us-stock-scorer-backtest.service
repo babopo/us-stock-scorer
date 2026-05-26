@@ -9,4 +9,4 @@ User=admin
 Group=admin
 WorkingDirectory=/home/admin/us-stock-scorer/apps/api
 EnvironmentFile=-/home/admin/us-stock-scorer/apps/api/.env
-ExecStart=/bin/bash -lc '/home/admin/us-stock-scorer/apps/api/.venv/bin/stock-scorer backtest run --tickers "${BACKTEST_TICKERS:-MSFT,NVDA,AAPL,GOOGL,AMZN}" && /home/admin/us-stock-scorer/apps/api/.venv/bin/stock-scorer evolve run --tickers "${BACKTEST_TICKERS:-MSFT,NVDA,AAPL,GOOGL,AMZN}"'
+ExecStart=/bin/bash -lc '/home/admin/us-stock-scorer/apps/api/.venv/bin/stock-scorer history sync --tickers "${BACKTEST_TICKERS:-MSFT,NVDA,AAPL,GOOGL,AMZN}" && /home/admin/us-stock-scorer/apps/api/.venv/bin/stock-scorer backtest run --tickers "${BACKTEST_TICKERS:-MSFT,NVDA,AAPL,GOOGL,AMZN}" && /home/admin/us-stock-scorer/apps/api/.venv/bin/stock-scorer evolve run --tickers "${BACKTEST_TICKERS:-MSFT,NVDA,AAPL,GOOGL,AMZN}"'

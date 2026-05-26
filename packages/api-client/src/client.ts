@@ -11,6 +11,9 @@ import type {
   EvolutionRunRequest,
   EvolutionRunResponse,
   HeaderMap,
+  HistorySyncRequest,
+  HistorySyncResponse,
+  HistorySyncRunsResponse,
   HttpMethod,
   QueryParams,
   RefreshTickerResponse,
@@ -137,6 +140,16 @@ export function createStockScorerClient(options: StockScorerClientOptions): Stoc
     evolveStrategy(evolutionRequest: EvolutionRunRequest) {
       return request<EvolutionRunResponse>("POST", "/v1/admin/strategies/evolve", {
         body: evolutionRequest
+      });
+    },
+
+    getHistorySyncRuns() {
+      return request<HistorySyncRunsResponse>("GET", "/v1/admin/history/syncs");
+    },
+
+    syncHistory(historyRequest: HistorySyncRequest) {
+      return request<HistorySyncResponse>("POST", "/v1/admin/history/sync", {
+        body: historyRequest
       });
     }
   };

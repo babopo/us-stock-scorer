@@ -216,3 +216,35 @@ test("backtest and strategy admin methods call research endpoints", async () => 
   assert.equal(requests[3]?.method, "POST");
   assert.equal(requests[3]?.url, "http://127.0.0.1:8000/v1/admin/strategies/evolve");
 });
+
+test("history sync admin methods call sync endpoints", async () => {
+  const requests: ApiRequest[] = [];
+  const client = createStockScorerClient({
+    baseUrl: "http://127.0.0.1:8000",
+    transport: async <T = unknown>(request: ApiRequest) => {
+      requests.push(request);
+      if (request.method === "GET") {
+        return { status: 200, headers: {}, data: { runs: [] } as T };
+      }
+      return {
+        status: 200,
+        headers: {},
+        data: {
+          run_id: 1,
+          tickers: [],
+          completed_count: 0,
+          failed_count: 0
+        } as T
+      };
+    }
+  });
+
+  await client.getHistorySyncRuns();
+  await client.syncHistory({ tickers: ["MSFT"], end_date: "2026-01-04" });
+
+  assert.equal(requests[0]?.method, "GET");
+  assert.equal(requests[0]?.url, "http://127.0.0.1:8000/v1/admin/history/syncs");
+  assert.equal(requests[1]?.method, "POST");
+  assert.equal(requests[1]?.url, "http://127.0.0.1:8000/v1/admin/history/sync");
+  assert.deepEqual(requests[1]?.body, { tickers: ["MSFT"], end_date: "2026-01-04" });
+});

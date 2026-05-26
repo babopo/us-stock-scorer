@@ -122,3 +122,39 @@ class EvolutionRunResponse(BaseModel):
     validation_total_return: float
     max_drawdown: float
     message: str
+
+
+class HistorySyncRequestModel(BaseModel):
+    tickers: list[str]
+    end_date: str | None = None
+
+
+class HistorySyncTickerResponse(BaseModel):
+    ticker: str
+    source: str
+    status: str
+    bars_before: int
+    bars_after: int
+    bars_added: int
+    latest_date: str | None
+    message: str
+
+
+class HistorySyncResponse(BaseModel):
+    run_id: int
+    tickers: list[HistorySyncTickerResponse]
+    completed_count: int
+    failed_count: int
+
+
+class StoredHistorySyncRunResponse(BaseModel):
+    run_id: int
+    tickers: list[str]
+    started_at: str
+    completed_at: str | None
+    completed_count: int
+    failed_count: int
+
+
+class HistorySyncRunsResponse(BaseModel):
+    runs: list[StoredHistorySyncRunResponse]

@@ -52,7 +52,7 @@ sudo systemctl start us-stock-scorer-backtest.service
 sudo systemctl reload nginx
 ```
 
-`us-stock-scorer-backtest.timer` runs the CLI after the US market close window and writes results to `STOCK_SCORER_DB_PATH` or `apps/api/data/stock_scorer.sqlite3`.
+`us-stock-scorer-backtest.timer` runs the CLI after the US market close window. It first syncs historical EOD bars for `BACKTEST_TICKERS`, then runs backtesting and strategy evolution. Results are written to `STOCK_SCORER_DB_PATH` or `apps/api/data/stock_scorer.sqlite3`.
 
 ## URLs
 

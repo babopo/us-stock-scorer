@@ -41,6 +41,16 @@ class StoredBacktestRun:
     buy_hold_return: float
 
 
+@dataclass(frozen=True)
+class StoredHistorySyncRun:
+    run_id: int
+    tickers: list[str]
+    started_at: str
+    completed_at: str | None
+    completed_count: int
+    failed_count: int
+
+
 def default_db_path() -> Path:
     return Path(os.getenv("STOCK_SCORER_DB_PATH", str(DEFAULT_DB_PATH))).expanduser()
 
@@ -132,6 +142,26 @@ def initialize_research_store(path: Path | None = None) -> None:
                 candidate_validation_return real not null,
                 max_drawdown real not null,
                 created_at text not null default (datetime('now'))
+            );
+
+            create table if not exists history_sync_runs (
+                id integer primary key autoincrement,
+                tickers text not null,
+                started_at text not null default (datetime('now')),
+                completed_at text
+            );
+
+            create table if not exists history_sync_results (
+                id integer primary key autoincrement,
+                run_id integer not null references history_sync_runs(id) on delete cascade,
+                ticker text not null,
+                source text not null,
+                status text not null check (status in ('completed', 'failed')),
+                bars_before integer not null,
+                bars_after integer not null,
+                bars_added integer not null,
+                latest_date text,
+                message text not null
             );
             """
         )
@@ -246,6 +276,27 @@ def get_historical_bars(
         params,
     ).fetchall()
     return [_bar_from_row(row) for row in rows]
+
+
+def count_historical_bars(connection: sqlite3.Connection, ticker: str, end_date: str | None = None) -> int:
+    if end_date is None:
+        return int(
+            connection.execute("select count(*) from historical_bars where ticker = ?", (ticker.upper(),)).fetchone()[0]
+        )
+    return int(
+        connection.execute(
+            "select count(*) from historical_bars where ticker = ? and date <= ?",
+            (ticker.upper(), end_date),
+        ).fetchone()[0]
+    )
+
+
+def latest_historical_bar_date(connection: sqlite3.Connection, ticker: str) -> str | None:
+    row = connection.execute(
+        "select max(date) from historical_bars where ticker = ?",
+        (ticker.upper(),),
+    ).fetchone()
+    return row[0] if row and row[0] else None
 
 
 def insert_backtest_run(
@@ -389,6 +440,77 @@ def insert_evolution_candidate(
     return int(cursor.lastrowid)
 
 
+def insert_history_sync_run(connection: sqlite3.Connection, tickers: list[str]) -> int:
+    cursor = connection.execute(
+        "insert into history_sync_runs (tickers) values (?)",
+        (",".join(tickers),),
+    )
+    return int(cursor.lastrowid)
+
+
+def complete_history_sync_run(connection: sqlite3.Connection, run_id: int) -> None:
+    connection.execute(
+        "update history_sync_runs set completed_at = datetime('now') where id = ?",
+        (run_id,),
+    )
+
+
+def insert_history_sync_result(
+    connection: sqlite3.Connection,
+    *,
+    run_id: int,
+    ticker: str,
+    source: str,
+    status: str,
+    bars_before: int,
+    bars_after: int,
+    bars_added: int,
+    latest_date: str | None,
+    message: str,
+) -> None:
+    connection.execute(
+        """
+        insert into history_sync_results (
+            run_id, ticker, source, status, bars_before, bars_after,
+            bars_added, latest_date, message
+        )
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (run_id, ticker, source, status, bars_before, bars_after, bars_added, latest_date, message),
+    )
+
+
+def list_history_sync_runs(connection: sqlite3.Connection, limit: int = 20) -> list[StoredHistorySyncRun]:
+    rows = connection.execute(
+        """
+        select
+            r.id,
+            r.tickers,
+            r.started_at,
+            r.completed_at,
+            sum(case when coalesce(s.status, '') = 'completed' then 1 else 0 end) as completed_count,
+            sum(case when coalesce(s.status, '') = 'failed' then 1 else 0 end) as failed_count
+        from history_sync_runs r
+        left join history_sync_results s on s.run_id = r.id
+        group by r.id
+        order by r.id desc
+        limit ?
+        """,
+        (limit,),
+    ).fetchall()
+    return [
+        StoredHistorySyncRun(
+            run_id=int(row["id"]),
+            tickers=[ticker for ticker in row["tickers"].split(",") if ticker],
+            started_at=row["started_at"],
+            completed_at=row["completed_at"],
+            completed_count=int(row["completed_count"] or 0),
+            failed_count=int(row["failed_count"] or 0),
+        )
+        for row in rows
+    ]
+
+
 def _strategy_from_row(row: sqlite3.Row) -> StrategyVersion:
     return StrategyVersion(
         strategy_id=int(row["id"]),
@@ -415,4 +537,3 @@ def _bar_from_row(row: sqlite3.Row) -> DailyBar:
         adjusted_close=float(row["adjusted_close"]),
         volume=int(row["volume"]),
     )
-

@@ -201,6 +201,42 @@ export interface EvolutionRunResponse {
   message: string;
 }
 
+export interface HistorySyncRequest {
+  tickers: string[];
+  end_date?: string;
+}
+
+export interface HistorySyncTickerResult {
+  ticker: string;
+  source: string;
+  status: string;
+  bars_before: number;
+  bars_after: number;
+  bars_added: number;
+  latest_date: string | null;
+  message: string;
+}
+
+export interface HistorySyncResponse {
+  run_id: number;
+  tickers: HistorySyncTickerResult[];
+  completed_count: number;
+  failed_count: number;
+}
+
+export interface StoredHistorySyncRun {
+  run_id: number;
+  tickers: string[];
+  started_at: string;
+  completed_at: string | null;
+  completed_count: number;
+  failed_count: number;
+}
+
+export interface HistorySyncRunsResponse {
+  runs: StoredHistorySyncRun[];
+}
+
 export interface StockScorerClientOptions {
   baseUrl?: string;
   transport: ApiTransport;
@@ -226,4 +262,6 @@ export interface StockScorerClient {
   runBacktest(request: BacktestRunRequest): Promise<BacktestRunResponse>;
   getStrategyVersions(): Promise<StrategyVersionsResponse>;
   evolveStrategy(request: EvolutionRunRequest): Promise<EvolutionRunResponse>;
+  getHistorySyncRuns(): Promise<HistorySyncRunsResponse>;
+  syncHistory(request: HistorySyncRequest): Promise<HistorySyncResponse>;
 }

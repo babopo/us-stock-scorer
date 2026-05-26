@@ -307,6 +307,47 @@ def test_admin_strategy_routes_return_versions_and_evolution_candidate(tmp_path,
     assert evolution_response.json()["candidate_strategy_id"] is not None
 
 
+def test_admin_history_sync_routes_trigger_and_list_runs(tmp_path, monkeypatch):
+    monkeypatch.setenv("STOCK_SCORER_DB_PATH", str(tmp_path / "research.sqlite3"))
+    initialize_research_store()
+    admin_headers = admin_static_auth_headers(monkeypatch)
+
+    def fake_sync(request):
+        from stock_scorer.history_sync import HistorySyncSummary, HistorySyncTickerResult
+
+        return HistorySyncSummary(
+            run_id=42,
+            tickers=[
+                HistorySyncTickerResult(
+                    ticker=request.tickers[0],
+                    source="fmp",
+                    status="completed",
+                    bars_before=1,
+                    bars_after=3,
+                    bars_added=2,
+                    latest_date=request.end_date,
+                    message="Synced 3 bars from fmp.",
+                )
+            ],
+            completed_count=1,
+            failed_count=0,
+        )
+
+    monkeypatch.setattr("stock_scorer.app.sync_historical_data", fake_sync)
+
+    response = client.post(
+        "/v1/admin/history/sync",
+        headers=admin_headers,
+        json={"tickers": ["MSFT"], "end_date": "2026-01-04"},
+    )
+    list_response = client.get("/v1/admin/history/syncs", headers=admin_headers)
+
+    assert response.status_code == 200
+    assert response.json()["tickers"][0]["bars_added"] == 2
+    assert list_response.status_code == 200
+    assert "runs" in list_response.json()
+
+
 def _api_backtest_bars() -> list[DailyBar]:
     bars = []
     for index in range(90):

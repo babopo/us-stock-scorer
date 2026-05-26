@@ -28,6 +28,25 @@ def test_cli_runs_backtest_and_prints_json(tmp_path, monkeypatch, capsys):
     assert '"trade_count":' in output
 
 
+def test_cli_runs_history_sync_with_default_end_date(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("STOCK_SCORER_DB_PATH", str(tmp_path / "research.sqlite3"))
+
+    from stock_scorer import cli
+
+    monkeypatch.setattr(
+        cli,
+        "sync_historical_data",
+        lambda request: {"tickers": request.tickers, "end_date": request.end_date},
+    )
+
+    exit_code = cli.main(["history", "sync", "--tickers", "MSFT,NVDA"])
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert '"MSFT"' in output
+    assert '"NVDA"' in output
+
+
 def _cli_bars() -> list[DailyBar]:
     bars = []
     for index in range(90):

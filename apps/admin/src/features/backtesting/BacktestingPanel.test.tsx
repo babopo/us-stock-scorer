@@ -44,6 +44,35 @@ describe("BacktestingPanel", () => {
           }
         ]
       })),
+      getHistorySyncRuns: vi.fn(async () => ({
+        runs: [
+          {
+            run_id: 3,
+            tickers: ["MSFT"],
+            started_at: "2026-05-26T00:00:00Z",
+            completed_at: "2026-05-26T00:01:00Z",
+            completed_count: 1,
+            failed_count: 0
+          }
+        ]
+      })),
+      syncHistory: vi.fn(async () => ({
+        run_id: 4,
+        tickers: [
+          {
+            ticker: "MSFT",
+            source: "fmp",
+            status: "completed",
+            bars_before: 1,
+            bars_after: 3,
+            bars_added: 2,
+            latest_date: "2026-03-01",
+            message: "Synced 3 bars from fmp."
+          }
+        ],
+        completed_count: 1,
+        failed_count: 0
+      })),
       runBacktest: vi.fn(async () => ({
         run_id: 8,
         strategy_id: 1,
@@ -77,6 +106,10 @@ describe("BacktestingPanel", () => {
 
     await waitFor(() => expect(screen.getByText("Run #7")).toBeInTheDocument());
     expect(screen.getByText("default-v1")).toBeInTheDocument();
+    expect(screen.getByText("Sync #3")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "同步历史数据" }));
+    await waitFor(() => expect(screen.getByText("Synced 3 bars from fmp.")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "运行回测" }));
     await waitFor(() => expect(client.runBacktest).toHaveBeenCalled());
@@ -96,4 +129,3 @@ function renderWithQueryClient(children: React.ReactElement) {
 
   return render(<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>);
 }
-

@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from stock_scorer.backtesting import BacktestRequest, run_backtest
+from stock_scorer.history_sync import HistorySyncRequest, sync_historical_data
 from stock_scorer.strategy_evolution import EvolutionRequest, evolve_strategy
 
 
@@ -20,6 +21,12 @@ def main(argv: list[str] | None = None) -> int:
     backtest_run.add_argument("--end-date")
     backtest_run.add_argument("--initial-cash", type=float, default=10_000.0)
 
+    history = subparsers.add_parser("history")
+    history_subparsers = history.add_subparsers(dest="subcommand", required=True)
+    history_sync = history_subparsers.add_parser("sync")
+    history_sync.add_argument("--tickers", required=True)
+    history_sync.add_argument("--end-date")
+
     evolve = subparsers.add_parser("evolve")
     evolve_subparsers = evolve.add_subparsers(dest="subcommand", required=True)
     evolve_run = evolve_subparsers.add_parser("run")
@@ -31,7 +38,14 @@ def main(argv: list[str] | None = None) -> int:
     evolve_run.add_argument("--initial-cash", type=float, default=10_000.0)
 
     args = parser.parse_args(argv)
-    if args.command == "backtest" and args.subcommand == "run":
+    if args.command == "history" and args.subcommand == "sync":
+        result = sync_historical_data(
+            HistorySyncRequest(
+                tickers=_tickers(args.tickers),
+                end_date=args.end_date or date.today().isoformat(),
+            )
+        )
+    elif args.command == "backtest" and args.subcommand == "run":
         end_date = args.end_date or date.today().isoformat()
         start_date = args.start_date or (date.fromisoformat(end_date) - timedelta(days=365)).isoformat()
         result = run_backtest(

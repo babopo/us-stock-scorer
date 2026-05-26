@@ -2,7 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FlaskConical, LineChart, RefreshCw } from "lucide-react";
 import { FormEvent, useState } from "react";
 
-import { isApiError, type StockScorerClient, type StoredBacktestRun, type StrategyVersion } from "@stock-scorer/api-client";
+import {
+  isApiError,
+  type StockScorerClient,
+  type StoredBacktestRun,
+  type StoredHistorySyncRun,
+  type StrategyVersion
+} from "@stock-scorer/api-client";
 
 interface BacktestingPanelProps {
   client: StockScorerClient;
@@ -21,6 +27,18 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
   const strategiesQuery = useQuery({
     queryKey: ["strategy-versions"],
     queryFn: () => client.getStrategyVersions()
+  });
+  const syncRunsQuery = useQuery({
+    queryKey: ["history-sync-runs"],
+    queryFn: () => client.getHistorySyncRuns()
+  });
+  const syncMutation = useMutation({
+    mutationFn: () =>
+      client.syncHistory({
+        tickers: parseTickers(tickers),
+        end_date: endDate
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["history-sync-runs"] })
   });
   const backtestMutation = useMutation({
     mutationFn: () =>
@@ -77,6 +95,10 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
           <RefreshCw aria-hidden="true" size={17} className={backtestMutation.isPending ? "spin" : undefined} />
           运行回测
         </button>
+        <button type="button" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending}>
+          <RefreshCw aria-hidden="true" size={17} className={syncMutation.isPending ? "spin" : undefined} />
+          同步历史数据
+        </button>
         <button type="button" onClick={() => evolutionMutation.mutate()} disabled={evolutionMutation.isPending}>
           <FlaskConical aria-hidden="true" size={17} />
           生成候选策略
@@ -85,8 +107,11 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
 
       {runsQuery.error ? <div className="error-panel">{formatError(runsQuery.error)}</div> : null}
       {strategiesQuery.error ? <div className="error-panel">{formatError(strategiesQuery.error)}</div> : null}
+      {syncRunsQuery.error ? <div className="error-panel">{formatError(syncRunsQuery.error)}</div> : null}
+      {syncMutation.error ? <div className="error-panel">{formatError(syncMutation.error)}</div> : null}
       {backtestMutation.error ? <div className="error-panel">{formatError(backtestMutation.error)}</div> : null}
       {evolutionMutation.error ? <div className="error-panel">{formatError(evolutionMutation.error)}</div> : null}
+      {syncMutation.data?.tickers[0] ? <div className="research-result">{syncMutation.data.tickers[0].message}</div> : null}
       {evolutionMutation.data ? <div className="research-result">{evolutionMutation.data.message}</div> : null}
 
       <div className="research-grid">
@@ -103,6 +128,18 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
           )}
         </div>
         <div className="panel">
+          <h4>最近同步</h4>
+          {syncRunsQuery.data?.runs.length ? (
+            <div className="research-list">
+              {syncRunsQuery.data.runs.slice(0, 4).map((run) => (
+                <SyncRunRow key={run.run_id} run={run} />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">暂无同步任务。</div>
+          )}
+        </div>
+        <div className="panel">
           <h4>策略版本</h4>
           {strategiesQuery.data?.strategies.length ? (
             <div className="research-list">
@@ -116,6 +153,22 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
         </div>
       </div>
     </section>
+  );
+}
+
+function SyncRunRow({ run }: { run: StoredHistorySyncRun }) {
+  return (
+    <div className="research-row">
+      <div>
+        <strong>Sync #{run.run_id}</strong>
+        <span>{run.tickers.join(", ")} · {run.started_at}</span>
+      </div>
+      <div className="research-metrics">
+        <span>{run.completed_count} ok</span>
+        <span>{run.failed_count} failed</span>
+        <span>{run.completed_at ? "done" : "running"}</span>
+      </div>
+    </div>
   );
 }
 
@@ -177,4 +230,3 @@ function formatError(error: unknown): string {
   }
   return error instanceof Error ? error.message : "Research action failed";
 }
-
