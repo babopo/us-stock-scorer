@@ -12,9 +12,11 @@
   "dependencies": {
     "@stock-scorer/api-client": "workspace:*",
     "@tanstack/react-query": "^5.90.12",
+    "antd": "^6.4.3",
     "lucide-react": "^0.555.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.15.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

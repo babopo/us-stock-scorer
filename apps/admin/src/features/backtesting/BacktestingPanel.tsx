@@ -12,9 +12,10 @@ import {
 
 interface BacktestingPanelProps {
   client: StockScorerClient;
+  view?: "all" | "strategy" | "backtests";
 }
 
-export function BacktestingPanel({ client }: BacktestingPanelProps) {
+export function BacktestingPanel({ client, view = "all" }: BacktestingPanelProps) {
   const queryClient = useQueryClient();
   const [tickers, setTickers] = useState("MSFT");
   const [startDate, setStartDate] = useState("2026-01-01");
@@ -76,6 +77,9 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
   const strategies = strategiesQuery.data?.strategies ?? [];
   const activeStrategy = strategies.find((strategy) => strategy.status === "active");
   const candidateCount = strategies.filter((strategy) => strategy.status === "candidate").length;
+  const showStrategy = view === "all" || view === "strategy";
+  const showBacktests = view === "all" || view === "backtests";
+  const showSync = view === "all";
 
   function submitBacktest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -95,7 +99,7 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
         </span>
       </div>
 
-      <div className="strategy-command-strip" aria-label="Strategy review summary">
+      {showStrategy ? <div className="strategy-command-strip" aria-label="Strategy review summary">
         <div>
           <span>Active strategy</span>
           <strong>{activeStrategy ? activeStrategy.name : "未加载"}</strong>
@@ -108,7 +112,7 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
           <span>Latest window</span>
           <strong>{startDate} / {endDate}</strong>
         </div>
-      </div>
+      </div> : null}
 
       <form className="research-form" onSubmit={submitBacktest}>
         <div className="field-control">
@@ -124,18 +128,18 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
           <input id="research-end" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
         </div>
         <div className="research-actions">
-          <button type="submit" disabled={backtestMutation.isPending}>
+          {showBacktests ? <button type="submit" disabled={backtestMutation.isPending}>
             <RefreshCw aria-hidden="true" size={17} className={backtestMutation.isPending ? "spin" : undefined} />
             运行回测
-          </button>
-          <button type="button" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending}>
+          </button> : null}
+          {showSync ? <button type="button" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending}>
             <RefreshCw aria-hidden="true" size={17} className={syncMutation.isPending ? "spin" : undefined} />
             同步历史数据
-          </button>
-          <button type="button" onClick={() => evolutionMutation.mutate()} disabled={evolutionMutation.isPending}>
+          </button> : null}
+          {showStrategy ? <button type="button" onClick={() => evolutionMutation.mutate()} disabled={evolutionMutation.isPending}>
             <FlaskConical aria-hidden="true" size={17} />
             生成候选策略
-          </button>
+          </button> : null}
         </div>
       </form>
 
@@ -151,7 +155,7 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
       {evolutionMutation.data ? <div className="research-result">{evolutionMutation.data.message}</div> : null}
 
       <div className="research-grid">
-        <div className="panel strategy-review-panel">
+        {showStrategy ? <div className="panel strategy-review-panel">
           <div className="panel-heading">
             <h4>候选审核</h4>
             <span>{candidateCount} pending</span>
@@ -171,8 +175,8 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
           ) : (
             <div className="empty-state">暂无策略版本。</div>
           )}
-        </div>
-        <div className="panel">
+        </div> : null}
+        {showBacktests ? <div className="panel">
           <div className="panel-heading">
             <h4>最近回测</h4>
             <span>{runsQuery.data?.runs.length ?? 0} runs</span>
@@ -186,8 +190,8 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
           ) : (
             <div className="empty-state">暂无回测任务。</div>
           )}
-        </div>
-        <div className="panel">
+        </div> : null}
+        {showSync ? <div className="panel">
           <div className="panel-heading">
             <h4>最近同步</h4>
             <span>{syncRunsQuery.data?.runs.length ?? 0} jobs</span>
@@ -201,7 +205,7 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
           ) : (
             <div className="empty-state">暂无同步任务。</div>
           )}
-        </div>
+        </div> : null}
       </div>
     </section>
   );

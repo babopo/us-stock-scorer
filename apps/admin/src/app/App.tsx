@@ -1,6 +1,8 @@
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { LogOut, ShieldCheck } from "lucide-react";
+import { Button, ConfigProvider, Layout, Menu, Tag, theme } from "antd";
+import { FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { BrowserRouter, NavLink, useLocation } from "react-router-dom";
+import { Activity, BarChart3, DatabaseZap, FlaskConical, LogOut, Search, ShieldCheck } from "lucide-react";
 
 import { isApiError, type StockScorerClient } from "@stock-scorer/api-client";
 
@@ -11,6 +13,7 @@ import { ProviderStatus } from "../features/providers/ProviderStatus";
 import { ScoreDebugger } from "../features/score/ScoreDebugger";
 
 export const ADMIN_SESSION_TOKEN_STORAGE_KEY = "stock-scorer-admin-token";
+const { Content, Header, Sider } = Layout;
 
 interface AppProps {
   client?: StockScorerClient;
@@ -109,46 +112,142 @@ export function App({ client }: AppProps) {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {authStatus === "authenticated" ? (
-        <AdminDashboard client={apiClient} onLogout={handleLogout} />
-      ) : (
-        <LoginPanel client={apiClient} onLogin={handleLogin} checkingSession={authStatus === "checking"} />
-      )}
-    </QueryClientProvider>
+    <ConfigProvider
+      theme={{
+        algorithm: theme.darkAlgorithm,
+        token: {
+          colorPrimary: "#f59e0b",
+          borderRadius: 8,
+          fontFamily: "\"Fira Sans\", Arial, sans-serif"
+        }
+      }}
+    >
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          {authStatus === "authenticated" ? (
+            <AdminDashboard client={apiClient} onLogout={handleLogout} />
+          ) : (
+            <LoginPanel client={apiClient} onLogin={handleLogin} checkingSession={authStatus === "checking"} />
+          )}
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ConfigProvider>
   );
 }
 
 function AdminDashboard({ client, onLogout }: { client: StockScorerClient; onLogout(): void }) {
+  const location = useLocation();
+  const selectedKey = navigationItems.find((item) => location.pathname.startsWith(item.path))?.path || "/score";
+
   return (
-    <main className="admin-shell product-shell">
-      <header className="topbar">
+    <Layout className="admin-layout">
+      <Sider className="admin-sider" width={244} breakpoint="lg" collapsedWidth="0">
+        <div className="admin-brand">
+          <span>US Stock Scorer</span>
+          <strong>美股评分工作台</strong>
+        </div>
+        <Menu
+          className="admin-menu"
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          items={navigationItems.map((item) => ({
+            key: item.path,
+            icon: item.icon,
+            label: <NavLink to={item.path}>{item.label}</NavLink>
+          }))}
+        />
+      </Sider>
+      <Layout className="admin-main-layout">
+        <Header className="admin-header">
+          <div>
+            <span className="eyebrow">Operations console</span>
+            <strong>{navigationItems.find((item) => item.path === selectedKey)?.label || "数据查询"}</strong>
+          </div>
+          <div className="admin-header-actions">
+            <Tag color="processing">Admin</Tag>
+            <Button type="primary" icon={<LogOut aria-hidden="true" size={16} />} onClick={onLogout}>
+              Log out
+            </Button>
+          </div>
+        </Header>
+        <Content className="admin-content">
+          {renderAdminPage(location.pathname, client)}
+        </Content>
+      </Layout>
+    </Layout>
+  );
+}
+
+function renderAdminPage(pathname: string, client: StockScorerClient) {
+  if (pathname.startsWith("/strategy")) {
+    return <StrategyPage client={client} />;
+  }
+  if (pathname.startsWith("/backtests")) {
+    return <BacktestsPage client={client} />;
+  }
+  if (pathname.startsWith("/operations")) {
+    return <OperationsPage client={client} />;
+  }
+  return <ScorePage client={client} />;
+}
+
+const navigationItems = [
+  { path: "/score", label: "数据查询", icon: <Search aria-hidden="true" size={17} /> },
+  { path: "/strategy", label: "策略管理", icon: <FlaskConical aria-hidden="true" size={17} /> },
+  { path: "/backtests", label: "回测实验", icon: <BarChart3 aria-hidden="true" size={17} /> },
+  { path: "/operations", label: "运维操作", icon: <DatabaseZap aria-hidden="true" size={17} /> }
+];
+
+function PageShell({ title, eyebrow, children }: { title: string; eyebrow: string; children: ReactNode }) {
+  return (
+    <section className="admin-page" aria-labelledby="admin-page-title">
+      <div className="page-heading">
         <div>
-          <p className="eyebrow">US Stock Scorer</p>
-          <h1>美股评分工作台</h1>
+          <p className="eyebrow">{eyebrow}</p>
+          <h1 id="admin-page-title">{title}</h1>
         </div>
-        <div className="topbar-actions">
-          <nav aria-label="Workspace sections">
-            <a href="#score-debugger-title">六维评分</a>
-            <a href="#backtesting-title">回测</a>
-            <a href="#provider-status-title">数据源</a>
-            <a href="#operations-title">数据操作</a>
-          </nav>
-          <button className="logout-button" type="button" onClick={onLogout}>
-            <LogOut aria-hidden="true" size={17} />
-            Log out
-          </button>
-        </div>
-      </header>
-      <div className="workspace">
-        <ScoreDebugger client={client} />
-        <div className="side-stack">
-          <BacktestingPanel client={client} />
-          <ProviderStatus client={client} />
-          <OperationsPanel client={client} />
-        </div>
+        <span className="status-pill">
+          <Activity aria-hidden="true" size={16} />
+          Live
+        </span>
       </div>
-    </main>
+      {children}
+    </section>
+  );
+}
+
+function ScorePage({ client }: { client: StockScorerClient }) {
+  return (
+    <PageShell title="数据查询" eyebrow="Stock intelligence">
+      <ScoreDebugger client={client} />
+    </PageShell>
+  );
+}
+
+function StrategyPage({ client }: { client: StockScorerClient }) {
+  return (
+    <PageShell title="策略管理" eyebrow="Strategy governance">
+      <BacktestingPanel client={client} view="strategy" />
+    </PageShell>
+  );
+}
+
+function BacktestsPage({ client }: { client: StockScorerClient }) {
+  return (
+    <PageShell title="回测实验" eyebrow="Portfolio research">
+      <BacktestingPanel client={client} view="backtests" />
+    </PageShell>
+  );
+}
+
+function OperationsPage({ client }: { client: StockScorerClient }) {
+  return (
+    <PageShell title="运维操作" eyebrow="Runtime controls">
+      <div className="operations-page-grid">
+        <ProviderStatus client={client} />
+        <OperationsPanel client={client} />
+      </div>
+    </PageShell>
   );
 }
 

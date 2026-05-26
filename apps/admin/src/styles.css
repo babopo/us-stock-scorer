@@ -22,6 +22,10 @@ body {
   background-size: 56px 56px;
 }
 
+#root {
+  min-height: 100vh;
+}
+
 button,
 input {
   font: inherit;
@@ -36,6 +40,115 @@ summary {
 .admin-shell {
   min-height: 100vh;
   padding: 24px;
+}
+
+.admin-layout {
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, rgba(30, 64, 175, 0.05) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(245, 158, 11, 0.04) 1px, transparent 1px),
+    #080a0f;
+  background-size: 56px 56px;
+}
+
+.admin-sider {
+  border-right: 1px solid rgba(150, 161, 179, 0.16);
+  background: rgba(10, 14, 22, 0.96) !important;
+}
+
+.admin-brand {
+  display: grid;
+  gap: 5px;
+  padding: 22px 18px 18px;
+  border-bottom: 1px solid rgba(150, 161, 179, 0.14);
+}
+
+.admin-brand span {
+  color: #f59e0b;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.admin-brand strong {
+  color: #f8fafc;
+  font-size: 18px;
+}
+
+.admin-menu {
+  border-inline-end: 0 !important;
+  padding: 14px 10px;
+  background: transparent !important;
+}
+
+.admin-menu .ant-menu-item {
+  min-height: 42px;
+  margin: 4px 0;
+}
+
+.admin-main-layout {
+  min-width: 0;
+  background: transparent;
+}
+
+.admin-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  height: auto;
+  min-height: 70px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid rgba(150, 161, 179, 0.16);
+  background: rgba(8, 10, 15, 0.92);
+  padding: 14px 24px;
+  backdrop-filter: blur(14px);
+}
+
+.admin-header strong {
+  display: block;
+  color: #f8fafc;
+  font-size: 20px;
+}
+
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-content {
+  padding: 22px;
+}
+
+.admin-page {
+  display: grid;
+  gap: 18px;
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+.page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-heading h1 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.operations-page-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.75fr) minmax(0, 1.25fr);
+  gap: 18px;
+  align-items: start;
 }
 
 .product-shell {
@@ -940,7 +1053,8 @@ li {
   .workspace,
   .score-hero,
   .debug-grid,
-  .research-grid {
+  .research-grid,
+  .operations-page-grid {
     grid-template-columns: 1fr;
   }
 
@@ -952,6 +1066,16 @@ li {
 @media (max-width: 760px) {
   .admin-shell {
     padding: 14px;
+  }
+
+  .admin-content {
+    padding: 14px;
+  }
+
+  .admin-header,
+  .page-heading {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .topbar,

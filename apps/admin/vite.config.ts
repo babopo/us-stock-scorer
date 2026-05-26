@@ -4,6 +4,9 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 650
+  },
   resolve: {
     alias: {
       "@stock-scorer/api-client": fileURLToPath(new URL("../../packages/api-client/src/index.ts", import.meta.url))

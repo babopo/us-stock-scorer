@@ -65,6 +65,23 @@ describe("App auth gate", () => {
     expect(client.logoutAdmin).toHaveBeenCalled();
     expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull();
   });
+
+  it("uses authenticated routes to separate score, strategy, backtest, and operations workspaces", async () => {
+    sessionStorage.setItem(STORAGE_KEY, "admin-session-token");
+    const client = createTestClient();
+
+    render(<App client={client} />);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "数据查询" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("link", { name: "策略管理" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "策略管理" })).toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "候选审核" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "运维操作" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "运维操作" })).toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "数据源状态" })).toBeInTheDocument();
+  });
 });
 
 function createTestClient(overrides: Partial<StockScorerClient> = {}): StockScorerClient {
@@ -80,6 +97,30 @@ function createTestClient(overrides: Partial<StockScorerClient> = {}): StockScor
     getTickerRawData: vi.fn(),
     getScoreSnapshots: vi.fn(),
     refreshTicker: vi.fn(),
+    getBacktestRuns: vi.fn(async () => ({ runs: [] })),
+    runBacktest: vi.fn(),
+    getStrategyVersions: vi.fn(async () => ({
+      strategies: [
+        {
+          strategy_id: 1,
+          name: "default-v1",
+          status: "active",
+          medium_entry_threshold: 65,
+          short_entry_threshold: 60,
+          stop_loss_pct: 0.08,
+          take_profit_pct: 0.18,
+          max_holding_days: 20,
+          position_size_pct: 1,
+          created_at: "2026-05-26T00:00:00Z",
+          notes: "Initial strategy"
+        }
+      ]
+    })),
+    promoteStrategy: vi.fn(),
+    archiveStrategy: vi.fn(),
+    evolveStrategy: vi.fn(),
+    getHistorySyncRuns: vi.fn(async () => ({ runs: [] })),
+    syncHistory: vi.fn(),
     loginAdmin: vi.fn(async () => ({
       access_token: "admin-session-token",
       token_type: "bearer",
