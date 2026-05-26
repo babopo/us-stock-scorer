@@ -190,6 +190,10 @@ def admin_run_backtest(payload: BacktestRunRequest) -> BacktestRunResponse:
             start_date=payload.start_date,
             end_date=payload.end_date,
             initial_cash=payload.initial_cash,
+            max_positions=payload.max_positions,
+            position_size_pct=payload.position_size_pct,
+            commission_bps=payload.commission_bps,
+            slippage_bps=payload.slippage_bps,
         )
     )
     return BacktestRunResponse(**asdict(summary))

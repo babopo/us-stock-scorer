@@ -33,6 +33,10 @@ class BacktestRunRequest(BaseModel):
     start_date: str
     end_date: str
     initial_cash: float = 10_000.0
+    max_positions: int = 5
+    position_size_pct: float | None = None
+    commission_bps: float = 0.0
+    slippage_bps: float = 0.0
 
 
 class BacktestMetricsResponse(BaseModel):
@@ -57,6 +61,13 @@ class BacktestTradeResponse(BaseModel):
     exit_reason: str
 
 
+class BacktestDailyEquityResponse(BaseModel):
+    date: str
+    cash: float
+    positions_value: float
+    total_equity: float
+
+
 class BacktestRunResponse(BaseModel):
     run_id: int
     strategy_id: int
@@ -66,6 +77,7 @@ class BacktestRunResponse(BaseModel):
     initial_cash: float
     metrics: BacktestMetricsResponse
     trades: list[BacktestTradeResponse] = []
+    equity_curve: list[BacktestDailyEquityResponse] = []
 
 
 class StoredBacktestRunResponse(BaseModel):

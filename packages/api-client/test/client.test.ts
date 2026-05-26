@@ -184,14 +184,24 @@ test("backtest and strategy admin methods call research endpoints", async () => 
             average_holding_days: 12,
             buy_hold_return: 0.04
           },
-          trades: []
+          trades: [],
+          equity_curve: []
         } as T
       };
     }
   });
 
   await client.getBacktestRuns();
-  await client.runBacktest({ tickers: ["MSFT"], start_date: "2026-01-01", end_date: "2026-03-01", initial_cash: 10000 });
+  await client.runBacktest({
+    tickers: ["MSFT"],
+    start_date: "2026-01-01",
+    end_date: "2026-03-01",
+    initial_cash: 10000,
+    max_positions: 2,
+    position_size_pct: 0.4,
+    commission_bps: 10,
+    slippage_bps: 10
+  });
   await client.getStrategyVersions();
   await client.evolveStrategy({
     tickers: ["MSFT"],
@@ -210,7 +220,11 @@ test("backtest and strategy admin methods call research endpoints", async () => 
     tickers: ["MSFT"],
     start_date: "2026-01-01",
     end_date: "2026-03-01",
-    initial_cash: 10000
+    initial_cash: 10000,
+    max_positions: 2,
+    position_size_pct: 0.4,
+    commission_bps: 10,
+    slippage_bps: 10
   });
   assert.equal(requests[2]?.url, "http://127.0.0.1:8000/v1/admin/strategies");
   assert.equal(requests[3]?.method, "POST");

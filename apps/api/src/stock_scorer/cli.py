@@ -23,6 +23,10 @@ def main(argv: list[str] | None = None) -> int:
     backtest_run.add_argument("--start-date")
     backtest_run.add_argument("--end-date")
     backtest_run.add_argument("--initial-cash", type=float, default=10_000.0)
+    backtest_run.add_argument("--max-positions", type=int, default=5)
+    backtest_run.add_argument("--position-size-pct", type=float)
+    backtest_run.add_argument("--commission-bps", type=float, default=0.0)
+    backtest_run.add_argument("--slippage-bps", type=float, default=0.0)
 
     history = subparsers.add_parser("history")
     history_subparsers = history.add_subparsers(dest="subcommand", required=True)
@@ -57,6 +61,10 @@ def main(argv: list[str] | None = None) -> int:
                 start_date=start_date,
                 end_date=end_date,
                 initial_cash=args.initial_cash,
+                max_positions=args.max_positions,
+                position_size_pct=args.position_size_pct,
+                commission_bps=args.commission_bps,
+                slippage_bps=args.slippage_bps,
             )
         )
     elif args.command == "evolve" and args.subcommand == "run":

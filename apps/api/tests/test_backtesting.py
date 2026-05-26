@@ -79,6 +79,46 @@ def test_run_backtest_prefers_persisted_score_snapshots(tmp_path, monkeypatch):
     assert summary.trades[0].entry_date == "2026-02-22"
 
 
+def test_run_backtest_uses_portfolio_cash_and_daily_equity_curve(tmp_path, monkeypatch):
+    monkeypatch.setenv("STOCK_SCORER_DB_PATH", str(tmp_path / "research.sqlite3"))
+    initialize_research_store()
+    msft_bars = rising_bars("2026-01", count=80)
+    nvda_bars = [DailyBar(**{**bar.__dict__, "adjusted_close": bar.adjusted_close * 2, "close": bar.close * 2}) for bar in msft_bars]
+    with open_research_connection() as connection:
+        upsert_historical_bars(connection, "MSFT", msft_bars)
+        upsert_historical_bars(connection, "NVDA", nvda_bars)
+        for ticker in ("MSFT", "NVDA"):
+            for bar in msft_bars:
+                upsert_score_snapshot(
+                    connection,
+                    ticker=ticker,
+                    date=bar.date,
+                    source="test",
+                    score=_snapshot_score(bar.date, medium=90, short=90),
+                    input_snapshot={"source": "test"},
+                )
+
+    summary = run_backtest(
+        BacktestRequest(
+            tickers=["MSFT", "NVDA"],
+            start_date="2026-02-20",
+            end_date="2026-03-10",
+            initial_cash=10_000,
+            max_positions=2,
+            position_size_pct=0.4,
+            commission_bps=10,
+            slippage_bps=10,
+        )
+    )
+
+    assert summary.equity_curve
+    assert summary.equity_curve[0].date == "2026-02-20"
+    assert summary.equity_curve[-1].total_equity != 10_000
+    assert min(point.cash for point in summary.equity_curve) < 10_000
+    assert max(point.positions_value for point in summary.equity_curve) > 0
+    assert {trade.ticker for trade in summary.trades} == {"MSFT", "NVDA"}
+
+
 def rising_bars(prefix: str, count: int) -> list[DailyBar]:
     bars = []
     for index in range(count):

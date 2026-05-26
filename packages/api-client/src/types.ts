@@ -125,6 +125,10 @@ export interface BacktestRunRequest {
   start_date: string;
   end_date: string;
   initial_cash?: number;
+  max_positions?: number;
+  position_size_pct?: number | null;
+  commission_bps?: number;
+  slippage_bps?: number;
 }
 
 export interface BacktestMetrics {
@@ -149,6 +153,13 @@ export interface BacktestTrade {
   exit_reason: string;
 }
 
+export interface BacktestDailyEquity {
+  date: string;
+  cash: number;
+  positions_value: number;
+  total_equity: number;
+}
+
 export interface BacktestRunResponse {
   run_id: number;
   strategy_id: number;
@@ -158,6 +169,7 @@ export interface BacktestRunResponse {
   initial_cash: number;
   metrics: BacktestMetrics;
   trades: BacktestTrade[];
+  equity_curve: BacktestDailyEquity[];
 }
 
 export interface StoredBacktestRun {

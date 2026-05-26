@@ -270,13 +270,23 @@ def test_admin_backtest_routes_require_admin_and_return_run_summary(tmp_path, mo
     response = client.post(
         "/v1/admin/backtests/runs",
         headers=admin_headers,
-        json={"tickers": ["MSFT"], "start_date": "2026-01-25", "end_date": "2026-03-15", "initial_cash": 10000},
+        json={
+            "tickers": ["MSFT"],
+            "start_date": "2026-01-25",
+            "end_date": "2026-03-15",
+            "initial_cash": 10000,
+            "max_positions": 2,
+            "position_size_pct": 0.4,
+            "commission_bps": 10,
+            "slippage_bps": 10,
+        },
     )
     list_response = client.get("/v1/admin/backtests/runs", headers=admin_headers)
 
     assert rejected.status_code == 403
     assert response.status_code == 200
     assert response.json()["metrics"]["trade_count"] >= 1
+    assert response.json()["equity_curve"]
     assert list_response.status_code == 200
     assert list_response.json()["runs"][0]["run_id"] == response.json()["run_id"]
 
