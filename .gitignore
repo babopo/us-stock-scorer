@@ -31,3 +31,4 @@ data/raw/
 data/cache/
 reports/
 *.log
+apps/api/data/
