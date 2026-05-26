@@ -47,6 +47,21 @@ def test_cli_runs_history_sync_with_default_end_date(tmp_path, monkeypatch, caps
     assert '"NVDA"' in output
 
 
+def test_cli_loads_local_env_file_without_overwriting_existing_values(tmp_path, monkeypatch):
+    from stock_scorer.cli import load_local_env_file
+
+    env_file = tmp_path / ".env"
+    env_file.write_text("STOCK_SCORER_DATA_SOURCES=fmp,finnhub\nEXISTING_VALUE=from-file\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("STOCK_SCORER_DATA_SOURCES", raising=False)
+    monkeypatch.setenv("EXISTING_VALUE", "from-env")
+
+    load_local_env_file()
+
+    assert __import__("os").environ["STOCK_SCORER_DATA_SOURCES"] == "fmp,finnhub"
+    assert __import__("os").environ["EXISTING_VALUE"] == "from-env"
+
+
 def _cli_bars() -> list[DailyBar]:
     bars = []
     for index in range(90):

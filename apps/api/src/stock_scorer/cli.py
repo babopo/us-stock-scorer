@@ -1,7 +1,9 @@
 import argparse
 import json
+import os
 from dataclasses import asdict, is_dataclass
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any
 
 from stock_scorer.backtesting import BacktestRequest, run_backtest
@@ -10,6 +12,7 @@ from stock_scorer.strategy_evolution import EvolutionRequest, evolve_strategy
 
 
 def main(argv: list[str] | None = None) -> int:
+    load_local_env_file()
     parser = argparse.ArgumentParser(prog="stock-scorer")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -80,6 +83,20 @@ def main(argv: list[str] | None = None) -> int:
 
     print(json.dumps(_jsonable(result), ensure_ascii=False, indent=2))
     return 0
+
+
+def load_local_env_file(path: str | Path = ".env") -> None:
+    env_path = Path(path)
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        if key and key not in os.environ:
+            os.environ[key] = value.strip().strip('"').strip("'")
 
 
 def _tickers(raw: str) -> list[str]:
