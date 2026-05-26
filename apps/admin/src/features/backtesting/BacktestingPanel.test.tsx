@@ -41,6 +41,19 @@ describe("BacktestingPanel", () => {
             position_size_pct: 1,
             created_at: "2026-05-26T00:00:00Z",
             notes: "Initial strategy"
+          },
+          {
+            strategy_id: 2,
+            name: "candidate-v2",
+            status: "candidate",
+            medium_entry_threshold: 60,
+            short_entry_threshold: 55,
+            stop_loss_pct: 0.07,
+            take_profit_pct: 0.22,
+            max_holding_days: 18,
+            position_size_pct: 0.5,
+            created_at: "2026-05-26T00:10:00Z",
+            notes: "Candidate strategy"
           }
         ]
       })),
@@ -99,13 +112,39 @@ describe("BacktestingPanel", () => {
         validation_total_return: 0.06,
         max_drawdown: 0.02,
         message: "Candidate strategy generated."
+      })),
+      promoteStrategy: vi.fn(async () => ({
+        strategy_id: 2,
+        name: "candidate-v2",
+        status: "active",
+        medium_entry_threshold: 60,
+        short_entry_threshold: 55,
+        stop_loss_pct: 0.07,
+        take_profit_pct: 0.22,
+        max_holding_days: 18,
+        position_size_pct: 0.5,
+        created_at: "2026-05-26T00:10:00Z",
+        notes: "Candidate strategy"
+      })),
+      archiveStrategy: vi.fn(async () => ({
+        strategy_id: 2,
+        name: "candidate-v2",
+        status: "archived",
+        medium_entry_threshold: 60,
+        short_entry_threshold: 55,
+        stop_loss_pct: 0.07,
+        take_profit_pct: 0.22,
+        max_holding_days: 18,
+        position_size_pct: 0.5,
+        created_at: "2026-05-26T00:10:00Z",
+        notes: "Candidate strategy"
       }))
     } as unknown as StockScorerClient;
 
     renderWithQueryClient(<BacktestingPanel client={client} />);
 
     await waitFor(() => expect(screen.getByText("Run #7")).toBeInTheDocument());
-    expect(screen.getByText("default-v1")).toBeInTheDocument();
+    expect(screen.getAllByText("default-v1").length).toBeGreaterThan(0);
     expect(screen.getByText("Sync #3")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "同步历史数据" }));
@@ -116,6 +155,12 @@ describe("BacktestingPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "生成候选策略" }));
     await waitFor(() => expect(screen.getByText("Candidate strategy generated.")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "晋升 candidate-v2" }));
+    await waitFor(() => expect(client.promoteStrategy).toHaveBeenCalledWith(2));
+
+    fireEvent.click(screen.getByRole("button", { name: "归档 candidate-v2" }));
+    await waitFor(() => expect(client.archiveStrategy).toHaveBeenCalledWith(2));
   });
 });
 

@@ -203,6 +203,8 @@ test("backtest and strategy admin methods call research endpoints", async () => 
     slippage_bps: 10
   });
   await client.getStrategyVersions();
+  await client.promoteStrategy(2);
+  await client.archiveStrategy(3);
   await client.evolveStrategy({
     tickers: ["MSFT"],
     training_start_date: "2026-01-01",
@@ -228,7 +230,11 @@ test("backtest and strategy admin methods call research endpoints", async () => 
   });
   assert.equal(requests[2]?.url, "http://127.0.0.1:8000/v1/admin/strategies");
   assert.equal(requests[3]?.method, "POST");
-  assert.equal(requests[3]?.url, "http://127.0.0.1:8000/v1/admin/strategies/evolve");
+  assert.equal(requests[3]?.url, "http://127.0.0.1:8000/v1/admin/strategies/2/promote");
+  assert.equal(requests[4]?.method, "POST");
+  assert.equal(requests[4]?.url, "http://127.0.0.1:8000/v1/admin/strategies/3/archive");
+  assert.equal(requests[5]?.method, "POST");
+  assert.equal(requests[5]?.url, "http://127.0.0.1:8000/v1/admin/strategies/evolve");
 });
 
 test("history sync admin methods call sync endpoints", async () => {

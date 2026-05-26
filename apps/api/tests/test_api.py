@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from stock_scorer.app import app
 from stock_scorer.market_data import DailyBar, MarketDataRateLimited, MarketSnapshot
-from stock_scorer.research_store import initialize_research_store, open_research_connection, upsert_historical_bars
+from stock_scorer.research_store import initialize_research_store, insert_strategy_version, open_research_connection, upsert_historical_bars
 from stock_scorer import score_service
 
 
@@ -315,6 +315,47 @@ def test_admin_strategy_routes_return_versions_and_evolution_candidate(tmp_path,
     assert versions_response.json()["strategies"][0]["status"] == "active"
     assert evolution_response.status_code == 200
     assert evolution_response.json()["candidate_strategy_id"] is not None
+
+
+def test_admin_strategy_review_routes_promote_and_archive_candidates(tmp_path, monkeypatch):
+    monkeypatch.setenv("STOCK_SCORER_DB_PATH", str(tmp_path / "research.sqlite3"))
+    initialize_research_store()
+    with open_research_connection() as connection:
+        candidate = insert_strategy_version(
+            connection,
+            name="candidate-review",
+            status="candidate",
+            medium_entry_threshold=60,
+            short_entry_threshold=55,
+            stop_loss_pct=0.07,
+            take_profit_pct=0.22,
+            max_holding_days=18,
+            position_size_pct=0.5,
+            notes="review candidate",
+        )
+        rejected = insert_strategy_version(
+            connection,
+            name="candidate-reject",
+            status="candidate",
+            medium_entry_threshold=62,
+            short_entry_threshold=57,
+            stop_loss_pct=0.08,
+            take_profit_pct=0.2,
+            max_holding_days=20,
+            position_size_pct=0.6,
+            notes="reject candidate",
+        )
+
+    admin_headers = admin_static_auth_headers(monkeypatch)
+    promote_response = client.post(f"/v1/admin/strategies/{candidate.strategy_id}/promote", headers=admin_headers)
+    archive_response = client.post(f"/v1/admin/strategies/{rejected.strategy_id}/archive", headers=admin_headers)
+    invalid_archive = client.post(f"/v1/admin/strategies/{candidate.strategy_id}/archive", headers=admin_headers)
+
+    assert promote_response.status_code == 200
+    assert promote_response.json()["status"] == "active"
+    assert archive_response.status_code == 200
+    assert archive_response.json()["status"] == "archived"
+    assert invalid_archive.status_code == 409
 
 
 def test_admin_history_sync_routes_trigger_and_list_runs(tmp_path, monkeypatch):

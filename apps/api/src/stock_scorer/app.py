@@ -19,6 +19,7 @@ from stock_scorer.admin_models import (
     RawTickerDataResponse,
     RefreshTickerResponse,
     ScoreSnapshotsResponse,
+    StrategyVersionResponse,
     StrategyVersionsResponse,
 )
 from stock_scorer.auth import (
@@ -44,12 +45,14 @@ from stock_scorer.models import StockScoreResponse
 from stock_scorer.backtesting import BacktestRequest, run_backtest
 from stock_scorer.history_sync import HistorySyncRequest, sync_historical_data
 from stock_scorer.research_store import (
+    archive_strategy_candidate,
     initialize_research_store,
+    get_score_snapshots,
     list_backtest_runs,
     list_history_sync_runs,
     list_strategy_versions,
-    get_score_snapshots,
     open_research_connection,
+    promote_strategy_candidate,
 )
 from stock_scorer.score_service import get_active_source_label, get_configured_data_sources, get_stock_score
 from stock_scorer.strategy_evolution import EvolutionRequest, evolve_strategy
@@ -205,6 +208,32 @@ def admin_list_strategies() -> StrategyVersionsResponse:
     with open_research_connection() as connection:
         strategies = list_strategy_versions(connection)
     return StrategyVersionsResponse(strategies=[asdict(strategy) for strategy in strategies])
+
+
+@app.post("/v1/admin/strategies/{strategy_id}/promote", response_model=StrategyVersionResponse, dependencies=[Depends(require_admin_access)])
+def admin_promote_strategy(strategy_id: int) -> StrategyVersionResponse:
+    initialize_research_store()
+    with open_research_connection() as connection:
+        try:
+            strategy = promote_strategy_candidate(connection, strategy_id)
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+    return StrategyVersionResponse(**asdict(strategy))
+
+
+@app.post("/v1/admin/strategies/{strategy_id}/archive", response_model=StrategyVersionResponse, dependencies=[Depends(require_admin_access)])
+def admin_archive_strategy(strategy_id: int) -> StrategyVersionResponse:
+    initialize_research_store()
+    with open_research_connection() as connection:
+        try:
+            strategy = archive_strategy_candidate(connection, strategy_id)
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+    return StrategyVersionResponse(**asdict(strategy))
 
 
 @app.post("/v1/admin/strategies/evolve", response_model=EvolutionRunResponse, dependencies=[Depends(require_admin_access)])

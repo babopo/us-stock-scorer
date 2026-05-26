@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FlaskConical, LineChart, RefreshCw } from "lucide-react";
+import { Archive, CheckCircle2, FlaskConical, LineChart, RefreshCw, ShieldCheck } from "lucide-react";
 import { FormEvent, useState } from "react";
 
 import {
@@ -65,6 +65,17 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
       queryClient.invalidateQueries({ queryKey: ["strategy-versions"] });
     }
   });
+  const promoteMutation = useMutation({
+    mutationFn: (strategyId: number) => client.promoteStrategy(strategyId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["strategy-versions"] })
+  });
+  const archiveMutation = useMutation({
+    mutationFn: (strategyId: number) => client.archiveStrategy(strategyId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["strategy-versions"] })
+  });
+  const strategies = strategiesQuery.data?.strategies ?? [];
+  const activeStrategy = strategies.find((strategy) => strategy.status === "active");
+  const candidateCount = strategies.filter((strategy) => strategy.status === "candidate").length;
 
   function submitBacktest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,25 +95,48 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
         </span>
       </div>
 
+      <div className="strategy-command-strip" aria-label="Strategy review summary">
+        <div>
+          <span>Active strategy</span>
+          <strong>{activeStrategy ? activeStrategy.name : "未加载"}</strong>
+        </div>
+        <div>
+          <span>Review queue</span>
+          <strong>{candidateCount} candidate</strong>
+        </div>
+        <div>
+          <span>Latest window</span>
+          <strong>{startDate} / {endDate}</strong>
+        </div>
+      </div>
+
       <form className="research-form" onSubmit={submitBacktest}>
-        <label htmlFor="research-tickers">Tickers</label>
-        <input id="research-tickers" value={tickers} onChange={(event) => setTickers(event.target.value)} />
-        <label htmlFor="research-start">Start</label>
-        <input id="research-start" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-        <label htmlFor="research-end">End</label>
-        <input id="research-end" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-        <button type="submit" disabled={backtestMutation.isPending}>
-          <RefreshCw aria-hidden="true" size={17} className={backtestMutation.isPending ? "spin" : undefined} />
-          运行回测
-        </button>
-        <button type="button" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending}>
-          <RefreshCw aria-hidden="true" size={17} className={syncMutation.isPending ? "spin" : undefined} />
-          同步历史数据
-        </button>
-        <button type="button" onClick={() => evolutionMutation.mutate()} disabled={evolutionMutation.isPending}>
-          <FlaskConical aria-hidden="true" size={17} />
-          生成候选策略
-        </button>
+        <div className="field-control">
+          <label htmlFor="research-tickers">Tickers</label>
+          <input id="research-tickers" value={tickers} onChange={(event) => setTickers(event.target.value)} />
+        </div>
+        <div className="field-control">
+          <label htmlFor="research-start">Start</label>
+          <input id="research-start" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+        </div>
+        <div className="field-control">
+          <label htmlFor="research-end">End</label>
+          <input id="research-end" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+        </div>
+        <div className="research-actions">
+          <button type="submit" disabled={backtestMutation.isPending}>
+            <RefreshCw aria-hidden="true" size={17} className={backtestMutation.isPending ? "spin" : undefined} />
+            运行回测
+          </button>
+          <button type="button" onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending}>
+            <RefreshCw aria-hidden="true" size={17} className={syncMutation.isPending ? "spin" : undefined} />
+            同步历史数据
+          </button>
+          <button type="button" onClick={() => evolutionMutation.mutate()} disabled={evolutionMutation.isPending}>
+            <FlaskConical aria-hidden="true" size={17} />
+            生成候选策略
+          </button>
+        </div>
       </form>
 
       {runsQuery.error ? <div className="error-panel">{formatError(runsQuery.error)}</div> : null}
@@ -111,12 +145,38 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
       {syncMutation.error ? <div className="error-panel">{formatError(syncMutation.error)}</div> : null}
       {backtestMutation.error ? <div className="error-panel">{formatError(backtestMutation.error)}</div> : null}
       {evolutionMutation.error ? <div className="error-panel">{formatError(evolutionMutation.error)}</div> : null}
+      {promoteMutation.error ? <div className="error-panel">{formatError(promoteMutation.error)}</div> : null}
+      {archiveMutation.error ? <div className="error-panel">{formatError(archiveMutation.error)}</div> : null}
       {syncMutation.data?.tickers[0] ? <div className="research-result">{syncMutation.data.tickers[0].message}</div> : null}
       {evolutionMutation.data ? <div className="research-result">{evolutionMutation.data.message}</div> : null}
 
       <div className="research-grid">
+        <div className="panel strategy-review-panel">
+          <div className="panel-heading">
+            <h4>候选审核</h4>
+            <span>{candidateCount} pending</span>
+          </div>
+          {strategies.length ? (
+            <div className="research-list">
+              {strategies.slice(0, 6).map((strategy) => (
+                <StrategyRow
+                  key={strategy.strategy_id}
+                  strategy={strategy}
+                  onPromote={(strategyId) => promoteMutation.mutate(strategyId)}
+                  onArchive={(strategyId) => archiveMutation.mutate(strategyId)}
+                  actionPending={promoteMutation.isPending || archiveMutation.isPending}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">暂无策略版本。</div>
+          )}
+        </div>
         <div className="panel">
-          <h4>最近回测</h4>
+          <div className="panel-heading">
+            <h4>最近回测</h4>
+            <span>{runsQuery.data?.runs.length ?? 0} runs</span>
+          </div>
           {runsQuery.data?.runs.length ? (
             <div className="research-list">
               {runsQuery.data.runs.slice(0, 4).map((run) => (
@@ -128,7 +188,10 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
           )}
         </div>
         <div className="panel">
-          <h4>最近同步</h4>
+          <div className="panel-heading">
+            <h4>最近同步</h4>
+            <span>{syncRunsQuery.data?.runs.length ?? 0} jobs</span>
+          </div>
           {syncRunsQuery.data?.runs.length ? (
             <div className="research-list">
               {syncRunsQuery.data.runs.slice(0, 4).map((run) => (
@@ -137,18 +200,6 @@ export function BacktestingPanel({ client }: BacktestingPanelProps) {
             </div>
           ) : (
             <div className="empty-state">暂无同步任务。</div>
-          )}
-        </div>
-        <div className="panel">
-          <h4>策略版本</h4>
-          {strategiesQuery.data?.strategies.length ? (
-            <div className="research-list">
-              {strategiesQuery.data.strategies.slice(0, 4).map((strategy) => (
-                <StrategyRow key={strategy.strategy_id} strategy={strategy} />
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">暂无策略版本。</div>
           )}
         </div>
       </div>
@@ -188,18 +239,49 @@ function BacktestRunRow({ run }: { run: StoredBacktestRun }) {
   );
 }
 
-function StrategyRow({ strategy }: { strategy: StrategyVersion }) {
+function StrategyRow({
+  strategy,
+  onPromote,
+  onArchive,
+  actionPending
+}: {
+  strategy: StrategyVersion;
+  onPromote(strategyId: number): void;
+  onArchive(strategyId: number): void;
+  actionPending: boolean;
+}) {
+  const isCandidate = strategy.status === "candidate";
   return (
-    <div className="research-row">
+    <div className={`research-row strategy-row strategy-row-${strategy.status}`}>
       <div>
-        <strong>{strategy.name}</strong>
-        <span>{strategy.status} · M{strategy.medium_entry_threshold} / S{strategy.short_entry_threshold}</span>
+        <div className="strategy-title-line">
+          <strong>{strategy.name}</strong>
+          <span className={`strategy-status strategy-status-${strategy.status}`}>{strategy.status}</span>
+        </div>
+        <span>M{strategy.medium_entry_threshold} / S{strategy.short_entry_threshold} · Size {formatPercent(strategy.position_size_pct)}</span>
       </div>
       <div className="research-metrics">
         <span>{formatPercent(strategy.stop_loss_pct)} stop</span>
         <span>{formatPercent(strategy.take_profit_pct)} target</span>
         <span>{strategy.max_holding_days} days</span>
       </div>
+      {isCandidate ? (
+        <div className="strategy-actions">
+          <button type="button" className="review-button review-button-primary" onClick={() => onPromote(strategy.strategy_id)} disabled={actionPending} aria-label={`晋升 ${strategy.name}`}>
+            <CheckCircle2 aria-hidden="true" size={15} />
+            晋升
+          </button>
+          <button type="button" className="review-button" onClick={() => onArchive(strategy.strategy_id)} disabled={actionPending} aria-label={`归档 ${strategy.name}`}>
+            <Archive aria-hidden="true" size={15} />
+            归档
+          </button>
+        </div>
+      ) : strategy.status === "active" ? (
+        <div className="strategy-active-note">
+          <ShieldCheck aria-hidden="true" size={15} />
+          当前启用
+        </div>
+      ) : null}
     </div>
   );
 }

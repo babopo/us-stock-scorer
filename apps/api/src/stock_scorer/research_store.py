@@ -254,6 +254,33 @@ def insert_strategy_version(
     return _strategy_from_row(row)
 
 
+def promote_strategy_candidate(connection: sqlite3.Connection, strategy_id: int) -> StrategyVersion:
+    row = connection.execute("select * from strategy_versions where id = ?", (strategy_id,)).fetchone()
+    if row is None:
+        raise LookupError(f"Strategy version not found: {strategy_id}")
+    strategy = _strategy_from_row(row)
+    if strategy.status != "candidate":
+        raise ValueError("Only candidate strategies can be promoted")
+
+    connection.execute("update strategy_versions set status = 'archived' where status = 'active'")
+    connection.execute("update strategy_versions set status = 'active' where id = ?", (strategy_id,))
+    promoted = connection.execute("select * from strategy_versions where id = ?", (strategy_id,)).fetchone()
+    return _strategy_from_row(promoted)
+
+
+def archive_strategy_candidate(connection: sqlite3.Connection, strategy_id: int) -> StrategyVersion:
+    row = connection.execute("select * from strategy_versions where id = ?", (strategy_id,)).fetchone()
+    if row is None:
+        raise LookupError(f"Strategy version not found: {strategy_id}")
+    strategy = _strategy_from_row(row)
+    if strategy.status != "candidate":
+        raise ValueError("Only candidate strategies can be archived")
+
+    connection.execute("update strategy_versions set status = 'archived' where id = ?", (strategy_id,))
+    archived = connection.execute("select * from strategy_versions where id = ?", (strategy_id,)).fetchone()
+    return _strategy_from_row(archived)
+
+
 def upsert_historical_bars(connection: sqlite3.Connection, ticker: str, bars: list[DailyBar]) -> None:
     normalized = ticker.upper()
     connection.executemany(

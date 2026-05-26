@@ -504,9 +504,51 @@ pre {
 }
 
 .research-grid,
-.research-list {
+.research-list,
+.strategy-command-strip {
   display: grid;
   gap: 12px;
+}
+
+.strategy-command-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 14px;
+  border: 1px solid rgba(150, 161, 179, 0.18);
+  border-radius: 8px;
+  background: rgba(7, 10, 16, 0.58);
+  padding: 10px;
+}
+
+.strategy-command-strip > div {
+  border-left: 3px solid rgba(245, 158, 11, 0.72);
+  background: rgba(245, 158, 11, 0.06);
+  padding: 9px 10px;
+}
+
+.strategy-command-strip span,
+.panel-heading span {
+  display: block;
+  color: #9aa7b8;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.strategy-command-strip strong {
+  display: block;
+  margin-top: 4px;
+  color: #f8fafc;
+  font-family: "Fira Code", Consolas, monospace;
+  font-size: 14px;
+}
+
+.research-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+.strategy-review-panel {
+  grid-row: span 2;
 }
 
 .research-row {
@@ -558,15 +600,22 @@ pre {
 
 .research-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: minmax(120px, 0.8fr) repeat(2, minmax(130px, 0.7fr)) minmax(210px, 1fr);
+  gap: 12px;
+  align-items: end;
   margin-bottom: 14px;
 }
 
-.research-form label {
-  align-self: center;
+.field-control {
+  display: grid;
+  gap: 6px;
+}
+
+.field-control label {
   color: #d8dee9;
+  font-size: 12px;
   font-weight: 700;
+  text-transform: uppercase;
 }
 
 .research-form input {
@@ -576,6 +625,12 @@ pre {
   border: 1px solid rgba(150, 161, 179, 0.35);
   border-radius: 8px;
   padding: 10px 11px;
+}
+
+.research-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .research-form button {
@@ -590,6 +645,13 @@ pre {
   border: 1px solid #fbbf24;
   border-radius: 8px;
   font-weight: 700;
+  padding: 8px 10px;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.research-form button:hover,
+.review-button:hover {
+  background: #fbbf24;
 }
 
 .research-form button:disabled {
@@ -628,9 +690,95 @@ pre {
   padding: 15px;
 }
 
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .panel h4 {
   color: #ffffff;
-  margin: 0 0 12px;
+  margin: 0;
+}
+
+.strategy-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.strategy-row-active {
+  border-left: 3px solid rgba(45, 212, 191, 0.72);
+  padding-left: 10px;
+}
+
+.strategy-title-line,
+.strategy-actions,
+.strategy-active-note {
+  display: flex;
+  align-items: center;
+}
+
+.strategy-title-line {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.strategy-status {
+  border: 1px solid rgba(150, 161, 179, 0.22);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.strategy-status-active {
+  color: #b8fff4;
+  border-color: rgba(45, 212, 191, 0.38);
+  background: rgba(45, 212, 191, 0.08);
+}
+
+.strategy-status-candidate {
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.42);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.strategy-status-archived {
+  color: #cbd5e1;
+  background: rgba(150, 161, 179, 0.08);
+}
+
+.strategy-actions {
+  gap: 8px;
+}
+
+.review-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #f8fafc;
+  border: 1px solid rgba(150, 161, 179, 0.28);
+  border-radius: 8px;
+  background: rgba(16, 21, 28, 0.82);
+  font-weight: 700;
+  padding: 7px 10px;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.review-button-primary {
+  color: #111827;
+  border-color: #fbbf24;
+  background: #f59e0b;
+}
+
+.strategy-active-note {
+  gap: 7px;
+  color: #b8fff4;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .factor-list,
@@ -791,7 +939,8 @@ li {
 @media (max-width: 1120px) {
   .workspace,
   .score-hero,
-  .debug-grid {
+  .debug-grid,
+  .research-grid {
     grid-template-columns: 1fr;
   }
 
@@ -836,6 +985,8 @@ li {
   .ops-ticker-control,
   .ops-buttons,
   .research-form,
+  .research-actions,
+  .strategy-command-strip,
   .research-metrics {
     grid-template-columns: 1fr;
   }

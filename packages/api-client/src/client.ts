@@ -20,6 +20,7 @@ import type {
   StockScorerClient,
   StockScorerClientOptions,
   StockScoreResponse,
+  StrategyVersion,
   StrategyVersionsResponse
 } from "./types";
 import { joinUrl } from "./url";
@@ -135,6 +136,14 @@ export function createStockScorerClient(options: StockScorerClientOptions): Stoc
 
     getStrategyVersions() {
       return request<StrategyVersionsResponse>("GET", "/v1/admin/strategies");
+    },
+
+    promoteStrategy(strategyId) {
+      return request<StrategyVersion>("POST", `/v1/admin/strategies/${encodeURIComponent(String(strategyId))}/promote`);
+    },
+
+    archiveStrategy(strategyId) {
+      return request<StrategyVersion>("POST", `/v1/admin/strategies/${encodeURIComponent(String(strategyId))}/archive`);
     },
 
     evolveStrategy(evolutionRequest: EvolutionRunRequest) {

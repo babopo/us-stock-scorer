@@ -288,6 +288,8 @@ export interface StockScorerClient {
   getBacktestRuns(): Promise<BacktestRunsResponse>;
   runBacktest(request: BacktestRunRequest): Promise<BacktestRunResponse>;
   getStrategyVersions(): Promise<StrategyVersionsResponse>;
+  promoteStrategy(strategyId: number): Promise<StrategyVersion>;
+  archiveStrategy(strategyId: number): Promise<StrategyVersion>;
   evolveStrategy(request: EvolutionRunRequest): Promise<EvolutionRunResponse>;
   getHistorySyncRuns(): Promise<HistorySyncRunsResponse>;
   syncHistory(request: HistorySyncRequest): Promise<HistorySyncResponse>;
