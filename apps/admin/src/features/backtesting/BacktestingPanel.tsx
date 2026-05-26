@@ -15,9 +15,11 @@ interface BacktestingPanelProps {
   view?: "all" | "strategy" | "backtests";
 }
 
+const DEFAULT_RESEARCH_TICKERS = ["NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "AMD", "INTC"].join(",");
+
 export function BacktestingPanel({ client, view = "all" }: BacktestingPanelProps) {
   const queryClient = useQueryClient();
-  const [tickers, setTickers] = useState("MSFT");
+  const [tickers, setTickers] = useState(DEFAULT_RESEARCH_TICKERS);
   const [startDate, setStartDate] = useState("2026-01-01");
   const [endDate, setEndDate] = useState("2026-03-31");
 

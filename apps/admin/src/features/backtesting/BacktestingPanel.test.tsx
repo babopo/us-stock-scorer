@@ -6,6 +6,8 @@ import type { StockScorerClient } from "@stock-scorer/api-client";
 
 import { BacktestingPanel } from "./BacktestingPanel";
 
+const DEFAULT_BACKTEST_TICKERS = ["NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "AMD", "INTC"];
+
 describe("BacktestingPanel", () => {
   it("renders backtest runs, strategies, and triggers research actions", async () => {
     const client = {
@@ -144,6 +146,7 @@ describe("BacktestingPanel", () => {
     renderWithQueryClient(<BacktestingPanel client={client} />);
 
     await waitFor(() => expect(screen.getByText("Run #7")).toBeInTheDocument());
+    expect(screen.getByLabelText("Tickers")).toHaveValue(DEFAULT_BACKTEST_TICKERS.join(","));
     expect(screen.getAllByText("default-v1").length).toBeGreaterThan(0);
     expect(screen.getByText("Sync #3")).toBeInTheDocument();
 
@@ -152,9 +155,11 @@ describe("BacktestingPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "运行回测" }));
     await waitFor(() => expect(client.runBacktest).toHaveBeenCalled());
+    expect(client.runBacktest).toHaveBeenCalledWith(expect.objectContaining({ tickers: DEFAULT_BACKTEST_TICKERS }));
 
     fireEvent.click(screen.getByRole("button", { name: "生成候选策略" }));
     await waitFor(() => expect(screen.getByText("Candidate strategy generated.")).toBeInTheDocument());
+    expect(client.evolveStrategy).toHaveBeenCalledWith(expect.objectContaining({ tickers: DEFAULT_BACKTEST_TICKERS }));
 
     fireEvent.click(screen.getByRole("button", { name: "晋升 candidate-v2" }));
     await waitFor(() => expect(client.promoteStrategy).toHaveBeenCalledWith(2));
