@@ -7,6 +7,7 @@ from stock_scorer.research_store import (
     StrategyVersion,
     get_active_strategy,
     get_historical_bars,
+    get_score_snapshots,
     initialize_research_store,
     insert_backtest_metrics,
     insert_backtest_run,
@@ -84,10 +85,23 @@ def run_backtest(request: BacktestRequest, strategy: StrategyVersion | None = No
                 bars = _hydrate_historical_bars(connection, ticker, request.end_date)
             if not bars:
                 continue
+            score_snapshots = {
+                snapshot.date: snapshot.score
+                for snapshot in get_score_snapshots(connection, ticker, limit=10_000)
+                if request.start_date <= snapshot.date <= request.end_date
+            }
             window_bars = [bar for bar in bars if request.start_date <= bar.date <= request.end_date]
             if len(window_bars) >= 2 and window_bars[0].adjusted_close:
                 buy_hold_returns.append(window_bars[-1].adjusted_close / window_bars[0].adjusted_close - 1)
-            trades = _simulate_ticker(ticker, bars, request.start_date, request.end_date, selected_strategy, cash)
+            trades = _simulate_ticker(
+                ticker,
+                bars,
+                request.start_date,
+                request.end_date,
+                selected_strategy,
+                cash,
+                score_snapshots,
+            )
             for trade in trades:
                 cash += trade.shares * (trade.exit_price - trade.entry_price)
                 equity_curve.append(cash)
@@ -142,19 +156,21 @@ def _simulate_ticker(
     end_date: str,
     strategy: StrategyVersion,
     cash: float,
+    score_snapshots: dict[str, dict[str, object]] | None = None,
 ) -> list[BacktestTrade]:
     trades: list[BacktestTrade] = []
+    score_snapshots = score_snapshots or {}
     dated_bars = [bar for bar in all_bars if start_date <= bar.date <= end_date]
     open_trade: tuple[DailyBar, float] | None = None
     for index, bar in enumerate(dated_bars):
         as_of_bars = [candidate for candidate in all_bars if candidate.date <= bar.date]
         if len(as_of_bars) < 50:
             continue
-        score = build_score_from_market_snapshot(_snapshot_from_bars(ticker, as_of_bars))
+        score = _score_for_date(ticker, bar.date, as_of_bars, score_snapshots)
         if open_trade is None:
             if (
-                score.medium_term_score >= strategy.medium_entry_threshold
-                and score.short_term_score >= strategy.short_entry_threshold
+                int(score["medium_term_score"]) >= strategy.medium_entry_threshold
+                and int(score["short_term_score"]) >= strategy.short_entry_threshold
             ):
                 shares = (cash * strategy.position_size_pct) / bar.adjusted_close if bar.adjusted_close else 0.0
                 open_trade = (bar, shares)
@@ -163,7 +179,7 @@ def _simulate_ticker(
         entry_bar, shares = open_trade
         holding_days = index - dated_bars.index(entry_bar)
         return_pct = bar.adjusted_close / entry_bar.adjusted_close - 1
-        exit_reason = _exit_reason(return_pct, holding_days, score.short_term_label, strategy)
+        exit_reason = _exit_reason(return_pct, holding_days, score["short_term_label"], strategy)
         if exit_reason:
             trades.append(
                 BacktestTrade(
@@ -197,6 +213,18 @@ def _simulate_ticker(
             )
         )
     return trades
+
+
+def _score_for_date(
+    ticker: str,
+    date: str,
+    as_of_bars: list[DailyBar],
+    score_snapshots: dict[str, dict[str, object]],
+) -> dict[str, object]:
+    snapshot_score = score_snapshots.get(date)
+    if snapshot_score is not None:
+        return snapshot_score
+    return build_score_from_market_snapshot(_snapshot_from_bars(ticker, as_of_bars)).model_dump(mode="json")
 
 
 def _snapshot_from_bars(ticker: str, bars_ascending: list[DailyBar]) -> MarketSnapshot:
