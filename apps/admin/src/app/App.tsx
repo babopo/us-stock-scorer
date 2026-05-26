@@ -146,16 +146,18 @@ function AdminDashboard({ client, onLogout }: { client: StockScorerClient; onLog
           <span>US Stock Scorer</span>
           <strong>美股评分工作台</strong>
         </div>
-        <Menu
-          className="admin-menu"
-          mode="inline"
-          selectedKeys={[selectedKey]}
-          items={navigationItems.map((item) => ({
-            key: item.path,
-            icon: item.icon,
-            label: <NavLink to={item.path}>{item.label}</NavLink>
-          }))}
-        />
+        <nav aria-label="Desktop sections">
+          <Menu
+            className="admin-menu"
+            mode="inline"
+            selectedKeys={[selectedKey]}
+            items={navigationItems.map((item) => ({
+              key: item.path,
+              icon: item.icon,
+              label: <NavLink to={item.path}>{item.label}</NavLink>
+            }))}
+          />
+        </nav>
       </Sider>
       <Layout className="admin-main-layout">
         <Header className="admin-header">
@@ -170,11 +172,29 @@ function AdminDashboard({ client, onLogout }: { client: StockScorerClient; onLog
             </Button>
           </div>
         </Header>
+        <MobileSectionTabs selectedKey={selectedKey} />
         <Content className="admin-content">
           {renderAdminPage(location.pathname, client)}
         </Content>
       </Layout>
     </Layout>
+  );
+}
+
+function MobileSectionTabs({ selectedKey }: { selectedKey: string }) {
+  return (
+    <nav className="mobile-section-tabs" aria-label="Mobile sections">
+      {navigationItems.map((item) => (
+        <NavLink
+          key={item.path}
+          to={item.path}
+          className={({ isActive }) => (isActive || item.path === selectedKey ? "active" : "")}
+        >
+          {item.icon}
+          <span>{item.label}</span>
+        </NavLink>
+      ))}
+    </nav>
   );
 }
 

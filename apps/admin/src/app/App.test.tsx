@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 import { ApiError, type StockScorerClient } from "@stock-scorer/api-client";
@@ -74,13 +74,31 @@ describe("App auth gate", () => {
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "数据查询" })).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("link", { name: "策略管理" }));
+    const desktopNav = screen.getByRole("navigation", { name: "Desktop sections" });
+
+    fireEvent.click(within(desktopNav).getByRole("link", { name: "策略管理" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "策略管理" })).toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "候选审核" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("link", { name: "运维操作" }));
+    fireEvent.click(within(desktopNav).getByRole("link", { name: "运维操作" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "运维操作" })).toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "数据源状态" })).toBeInTheDocument();
+  });
+
+  it("renders a mobile-friendly primary navigation separate from the desktop sider", async () => {
+    sessionStorage.setItem(STORAGE_KEY, "admin-session-token");
+    window.history.pushState({}, "", "/score");
+    const client = createTestClient();
+
+    render(<App client={client} />);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "数据查询" })).toBeInTheDocument());
+
+    const mobileNav = screen.getByRole("navigation", { name: "Mobile sections" });
+    expect(mobileNav).toBeInTheDocument();
+    expect(mobileNav).toHaveClass("mobile-section-tabs");
+    expect(within(mobileNav).getByRole("link", { name: "数据查询" })).toBeInTheDocument();
+    expect(within(mobileNav).getByRole("link", { name: "运维操作" })).toBeInTheDocument();
   });
 });
 
