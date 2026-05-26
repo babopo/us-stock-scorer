@@ -18,6 +18,7 @@ from stock_scorer.admin_models import (
     ProviderStatusResponse,
     RawTickerDataResponse,
     RefreshTickerResponse,
+    ScoreSnapshotsResponse,
     StrategyVersionsResponse,
 )
 from stock_scorer.auth import (
@@ -47,6 +48,7 @@ from stock_scorer.research_store import (
     list_backtest_runs,
     list_history_sync_runs,
     list_strategy_versions,
+    get_score_snapshots,
     open_research_connection,
 )
 from stock_scorer.score_service import get_active_source_label, get_configured_data_sources, get_stock_score
@@ -155,6 +157,15 @@ def admin_ticker_raw_data(ticker: str) -> RawTickerDataResponse:
         raise HTTPException(status_code=404, detail=f"Ticker not found: {normalized}") from exc
 
     return RawTickerDataResponse(ticker=normalized, source="fixture", raw=raw)
+
+
+@app.get("/v1/admin/stocks/{ticker}/snapshots", response_model=ScoreSnapshotsResponse, dependencies=[Depends(require_admin_access)])
+def admin_ticker_score_snapshots(ticker: str, date: str | None = None) -> ScoreSnapshotsResponse:
+    normalized = ticker.upper()
+    initialize_research_store()
+    with open_research_connection() as connection:
+        snapshots = get_score_snapshots(connection, normalized, date=date)
+    return ScoreSnapshotsResponse(ticker=normalized, snapshots=[asdict(snapshot) for snapshot in snapshots])
 
 
 @app.post("/v1/admin/stocks/{ticker}/refresh", response_model=RefreshTickerResponse, dependencies=[Depends(require_admin_access)])

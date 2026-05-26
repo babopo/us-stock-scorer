@@ -248,3 +248,20 @@ test("history sync admin methods call sync endpoints", async () => {
   assert.equal(requests[1]?.url, "http://127.0.0.1:8000/v1/admin/history/sync");
   assert.deepEqual(requests[1]?.body, { tickers: ["MSFT"], end_date: "2026-01-04" });
 });
+
+test("getScoreSnapshots calls the score snapshot endpoint with optional date", async () => {
+  const requests: ApiRequest[] = [];
+  const client = createStockScorerClient({
+    baseUrl: "http://127.0.0.1:8000",
+    transport: async <T = unknown>(request: ApiRequest) => {
+      requests.push(request);
+      return { status: 200, headers: {}, data: { ticker: "MSFT", snapshots: [] } as T };
+    }
+  });
+
+  await client.getScoreSnapshots("msft", { date: "2026-03-31" });
+
+  assert.equal(requests[0]?.method, "GET");
+  assert.equal(requests[0]?.url, "http://127.0.0.1:8000/v1/admin/stocks/MSFT/snapshots");
+  assert.deepEqual(requests[0]?.query, { date: "2026-03-31" });
+});

@@ -168,4 +168,11 @@ stock-scorer evolve run --tickers MSFT,NVDA \
 stock-scorer history sync --tickers MSFT,NVDA --end-date 2026-03-31
 ```
 
-生产部署会安装并启用 `us-stock-scorer-backtest.timer`，默认在北京时间周二到周六 06:30 运行一次历史日线同步、回测和策略演化。可在 `apps/api/.env` 中设置 `BACKTEST_TICKERS=MSFT,NVDA,AAPL` 覆盖默认标的池。
+历史日线同步会同时生成历史评分快照。快照包括当日 as-of 价格窗口、provider overview 输入和完整评分结果，可通过 Admin API 查询：
+
+```bash
+curl -H "Authorization: Bearer ADMIN_TOKEN" \
+  "http://127.0.0.1:8000/v1/admin/stocks/MSFT/snapshots?date=2026-03-31"
+```
+
+生产部署会安装并启用 `us-stock-scorer-backtest.timer`，默认在北京时间周二到周六 06:30 运行一次历史日线同步、历史评分快照生成、回测和策略演化。可在 `apps/api/.env` 中设置 `BACKTEST_TICKERS=MSFT,NVDA,AAPL` 覆盖默认标的池。

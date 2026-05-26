@@ -1,4 +1,5 @@
 import os
+import json
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,6 +50,19 @@ class StoredHistorySyncRun:
     completed_at: str | None
     completed_count: int
     failed_count: int
+
+
+@dataclass(frozen=True)
+class StoredScoreSnapshot:
+    ticker: str
+    date: str
+    source: str
+    medium_term_score: int
+    short_term_score: int
+    action: str
+    score: dict[str, Any]
+    input_snapshot: dict[str, Any]
+    created_at: str
 
 
 def default_db_path() -> Path:
@@ -162,6 +176,19 @@ def initialize_research_store(path: Path | None = None) -> None:
                 bars_added integer not null,
                 latest_date text,
                 message text not null
+            );
+
+            create table if not exists score_snapshots (
+                ticker text not null,
+                date text not null,
+                source text not null,
+                medium_term_score integer not null,
+                short_term_score integer not null,
+                action text not null,
+                score_json text not null,
+                input_json text not null,
+                created_at text not null default (datetime('now')),
+                primary key (ticker, date)
             );
             """
         )
@@ -297,6 +324,66 @@ def latest_historical_bar_date(connection: sqlite3.Connection, ticker: str) -> s
         (ticker.upper(),),
     ).fetchone()
     return row[0] if row and row[0] else None
+
+
+def upsert_score_snapshot(
+    connection: sqlite3.Connection,
+    *,
+    ticker: str,
+    date: str,
+    source: str,
+    score: dict[str, Any],
+    input_snapshot: dict[str, Any],
+) -> None:
+    connection.execute(
+        """
+        insert into score_snapshots (
+            ticker, date, source, medium_term_score, short_term_score, action, score_json, input_json
+        )
+        values (?, ?, ?, ?, ?, ?, ?, ?)
+        on conflict(ticker, date) do update set
+            source = excluded.source,
+            medium_term_score = excluded.medium_term_score,
+            short_term_score = excluded.short_term_score,
+            action = excluded.action,
+            score_json = excluded.score_json,
+            input_json = excluded.input_json
+        """,
+        (
+            ticker.upper(),
+            date,
+            source,
+            int(score["medium_term_score"]),
+            int(score["short_term_score"]),
+            str(score.get("decision", {}).get("action", "")),
+            json.dumps(score, ensure_ascii=False, sort_keys=True),
+            json.dumps(input_snapshot, ensure_ascii=False, sort_keys=True),
+        ),
+    )
+
+
+def get_score_snapshots(
+    connection: sqlite3.Connection,
+    ticker: str,
+    date: str | None = None,
+    limit: int = 120,
+) -> list[StoredScoreSnapshot]:
+    clauses = ["ticker = ?"]
+    params: list[Any] = [ticker.upper()]
+    if date is not None:
+        clauses.append("date = ?")
+        params.append(date)
+    params.append(limit)
+    rows = connection.execute(
+        f"""
+        select * from score_snapshots
+        where {' and '.join(clauses)}
+        order by date desc
+        limit ?
+        """,
+        params,
+    ).fetchall()
+    return [_score_snapshot_from_row(row) for row in reversed(rows)]
 
 
 def insert_backtest_run(
@@ -536,4 +623,18 @@ def _bar_from_row(row: sqlite3.Row) -> DailyBar:
         close=float(row["close"]),
         adjusted_close=float(row["adjusted_close"]),
         volume=int(row["volume"]),
+    )
+
+
+def _score_snapshot_from_row(row: sqlite3.Row) -> StoredScoreSnapshot:
+    return StoredScoreSnapshot(
+        ticker=row["ticker"],
+        date=row["date"],
+        source=row["source"],
+        medium_term_score=int(row["medium_term_score"]),
+        short_term_score=int(row["short_term_score"]),
+        action=row["action"],
+        score=json.loads(row["score_json"]),
+        input_snapshot=json.loads(row["input_json"]),
+        created_at=row["created_at"],
     )

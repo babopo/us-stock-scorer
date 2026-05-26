@@ -13,6 +13,7 @@ from stock_scorer.research_store import (
     open_research_connection,
     upsert_historical_bars,
 )
+from stock_scorer.score_snapshots import generate_score_snapshots
 from stock_scorer.score_service import fetch_market_snapshot_from_source, get_configured_data_sources
 
 
@@ -104,6 +105,14 @@ def _sync_one_ticker(
             continue
 
         upsert_historical_bars(connection, ticker, bars)
+        generate_score_snapshots(
+            connection,
+            ticker=ticker,
+            source=source,
+            overview=snapshot.overview,
+            company_name=snapshot.company_name,
+            end_date=end_date,
+        )
         bars_after = count_historical_bars(connection, ticker, end_date)
         latest_date = latest_historical_bar_date(connection, ticker)
         return HistorySyncTickerResult(
@@ -128,4 +137,3 @@ def _sync_one_ticker(
         latest_date=latest_date,
         message="; ".join(errors) or "No live historical data source configured.",
     )
-

@@ -158,3 +158,20 @@ class StoredHistorySyncRunResponse(BaseModel):
 
 class HistorySyncRunsResponse(BaseModel):
     runs: list[StoredHistorySyncRunResponse]
+
+
+class ScoreSnapshotResponse(BaseModel):
+    ticker: str
+    date: str
+    source: str
+    medium_term_score: int
+    short_term_score: int
+    action: str
+    score: dict[str, Any]
+    input_snapshot: dict[str, Any]
+    created_at: str
+
+
+class ScoreSnapshotsResponse(BaseModel):
+    ticker: str
+    snapshots: list[ScoreSnapshotResponse]

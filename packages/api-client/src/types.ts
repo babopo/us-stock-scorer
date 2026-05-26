@@ -84,7 +84,22 @@ export type ProviderStatus = Record<string, unknown>;
 
 export type TickerRawData = Record<string, unknown>;
 
-export type ScoreSnapshots = Record<string, unknown>;
+export interface ScoreSnapshot {
+  ticker: string;
+  date: string;
+  source: string;
+  medium_term_score: number;
+  short_term_score: number;
+  action: string;
+  score: StockScoreResponse;
+  input_snapshot: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ScoreSnapshots {
+  ticker: string;
+  snapshots: ScoreSnapshot[];
+}
 
 export type RefreshTickerResponse = Record<string, unknown>;
 

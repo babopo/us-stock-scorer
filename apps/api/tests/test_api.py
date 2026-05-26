@@ -348,6 +348,51 @@ def test_admin_history_sync_routes_trigger_and_list_runs(tmp_path, monkeypatch):
     assert "runs" in list_response.json()
 
 
+def test_admin_score_snapshots_route_returns_persisted_snapshots(tmp_path, monkeypatch):
+    monkeypatch.setenv("STOCK_SCORER_DB_PATH", str(tmp_path / "research.sqlite3"))
+    initialize_research_store()
+    from stock_scorer.research_store import upsert_score_snapshot
+
+    with open_research_connection() as connection:
+        upsert_score_snapshot(
+            connection,
+            ticker="MSFT",
+            date="2026-03-31",
+            source="fmp",
+            score={
+                "ticker": "MSFT",
+                "company_name": "Microsoft Corporation",
+                "last_price": 420.0,
+                "medium_term_score": 70,
+                "medium_term_label": "positive",
+                "short_term_score": 66,
+                "short_term_label": "probe",
+                "factors": [],
+                "decision": {
+                    "action": "small_probe",
+                    "summary": "test",
+                    "trigger_conditions": [],
+                    "invalidation_conditions": [],
+                    "risks": [],
+                },
+                "data_as_of": "2026-03-31",
+                "data_source": "fmp",
+            },
+            input_snapshot={"daily_bar_count": 60},
+        )
+
+    response = client.get(
+        "/v1/admin/stocks/MSFT/snapshots",
+        headers=admin_static_auth_headers(monkeypatch),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ticker"] == "MSFT"
+    assert payload["snapshots"][0]["date"] == "2026-03-31"
+    assert payload["snapshots"][0]["medium_term_score"] == 70
+
+
 def _api_backtest_bars() -> list[DailyBar]:
     bars = []
     for index in range(90):
