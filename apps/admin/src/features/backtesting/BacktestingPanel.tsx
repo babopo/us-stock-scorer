@@ -168,6 +168,7 @@ export function BacktestingPanel({ client, view = "all" }: BacktestingPanelProps
                 <StrategyRow
                   key={strategy.strategy_id}
                   strategy={strategy}
+                  activeStrategy={activeStrategy}
                   onPromote={(strategyId) => promoteMutation.mutate(strategyId)}
                   onArchive={(strategyId) => archiveMutation.mutate(strategyId)}
                   actionPending={promoteMutation.isPending || archiveMutation.isPending}
@@ -247,16 +248,19 @@ function BacktestRunRow({ run }: { run: StoredBacktestRun }) {
 
 function StrategyRow({
   strategy,
+  activeStrategy,
   onPromote,
   onArchive,
   actionPending
 }: {
   strategy: StrategyVersion;
+  activeStrategy: StrategyVersion | undefined;
   onPromote(strategyId: number): void;
   onArchive(strategyId: number): void;
   actionPending: boolean;
 }) {
   const isCandidate = strategy.status === "candidate";
+  const comparison = activeStrategy && strategy.strategy_id !== activeStrategy.strategy_id ? buildStrategyComparison(strategy, activeStrategy) : [];
   return (
     <div className={`research-row strategy-row strategy-row-${strategy.status}`}>
       <div>
@@ -271,6 +275,23 @@ function StrategyRow({
         <span>{formatPercent(strategy.take_profit_pct)} target</span>
         <span>{strategy.max_holding_days} days</span>
       </div>
+      {comparison.length ? (
+        <div className="strategy-comparison" aria-label={`${strategy.name} 相对当前启用策略的指标差异`}>
+          <div className="strategy-comparison-heading">
+            <span>相对当前</span>
+            <strong>{activeStrategy?.name}</strong>
+          </div>
+          <div className="strategy-delta-grid">
+            {comparison.map((item) => (
+              <div key={item.label} className={`strategy-delta strategy-delta-${item.tone}`}>
+                <span>{item.label}</span>
+                <strong>{item.delta}</strong>
+                <em>{item.message}</em>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {isCandidate ? (
         <div className="strategy-actions">
           <button type="button" className="review-button review-button-primary" onClick={() => onPromote(strategy.strategy_id)} disabled={actionPending} aria-label={`晋升 ${strategy.name}`}>
@@ -292,6 +313,49 @@ function StrategyRow({
   );
 }
 
+function buildStrategyComparison(strategy: StrategyVersion, activeStrategy: StrategyVersion) {
+  const mediumDelta = strategy.medium_entry_threshold - activeStrategy.medium_entry_threshold;
+  const shortDelta = strategy.short_entry_threshold - activeStrategy.short_entry_threshold;
+  const entryDelta = mediumDelta + shortDelta;
+  const stopLossDelta = strategy.stop_loss_pct - activeStrategy.stop_loss_pct;
+  const targetDelta = strategy.take_profit_pct - activeStrategy.take_profit_pct;
+  const holdingDaysDelta = strategy.max_holding_days - activeStrategy.max_holding_days;
+  const positionDelta = strategy.position_size_pct - activeStrategy.position_size_pct;
+
+  return [
+    {
+      label: "入场门槛",
+      delta: `${formatSignedNumber(mediumDelta)}M / ${formatSignedNumber(shortDelta)}S`,
+      message: entryDelta < 0 ? "更宽松" : entryDelta > 0 ? "更严格" : "持平",
+      tone: entryDelta < 0 ? "watch" : entryDelta > 0 ? "steady" : "neutral"
+    },
+    {
+      label: "止损风险",
+      delta: formatSignedPercentPoint(stopLossDelta),
+      message: stopLossDelta < 0 ? "更稳" : stopLossDelta > 0 ? "更激进" : "持平",
+      tone: stopLossDelta < 0 ? "good" : stopLossDelta > 0 ? "watch" : "neutral"
+    },
+    {
+      label: "目标收益",
+      delta: formatSignedPercentPoint(targetDelta),
+      message: targetDelta > 0 ? "上行更高" : targetDelta < 0 ? "目标降低" : "持平",
+      tone: targetDelta > 0 ? "good" : targetDelta < 0 ? "watch" : "neutral"
+    },
+    {
+      label: "持仓周期",
+      delta: `${formatSignedNumber(holdingDaysDelta)}d`,
+      message: holdingDaysDelta < 0 ? "更快退出" : holdingDaysDelta > 0 ? "更久持有" : "持平",
+      tone: holdingDaysDelta < 0 ? "steady" : holdingDaysDelta > 0 ? "watch" : "neutral"
+    },
+    {
+      label: "仓位",
+      delta: formatSignedPercentPoint(positionDelta),
+      message: positionDelta < 0 ? "敞口降低" : positionDelta > 0 ? "敞口提高" : "持平",
+      tone: positionDelta < 0 ? "steady" : positionDelta > 0 ? "watch" : "neutral"
+    }
+  ];
+}
+
 function parseTickers(raw: string): string[] {
   return raw
     .split(",")
@@ -310,6 +374,21 @@ function midpointDate(startDate: string, endDate: string): string {
 
 function formatPercent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatSignedPercentPoint(value: number): string {
+  return `${formatSignedNumber(value * 100, 1)}pp`;
+}
+
+function formatSignedNumber(value: number, fractionDigits = 0): string {
+  const formatted = Math.abs(value).toFixed(fractionDigits);
+  if (value > 0) {
+    return `+${formatted}`;
+  }
+  if (value < 0) {
+    return `-${formatted}`;
+  }
+  return fractionDigits ? Number(0).toFixed(fractionDigits) : "0";
 }
 
 function formatError(error: unknown): string {

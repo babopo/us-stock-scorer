@@ -148,6 +148,13 @@ describe("BacktestingPanel", () => {
     await waitFor(() => expect(screen.getByText("Run #7")).toBeInTheDocument());
     expect(screen.getByLabelText("Tickers")).toHaveValue(DEFAULT_BACKTEST_TICKERS.join(","));
     expect(screen.getAllByText("default-v1").length).toBeGreaterThan(0);
+    expect(screen.getByText("相对当前")).toBeInTheDocument();
+    expect(screen.getByText("目标收益")).toBeInTheDocument();
+    expect(screen.getByText("+4.0pp")).toBeInTheDocument();
+    expect(screen.getByText("止损风险")).toBeInTheDocument();
+    expect(screen.getByText("更稳")).toBeInTheDocument();
+    expect(screen.getByText("仓位")).toBeInTheDocument();
+    expect(screen.getByText("-50.0pp")).toBeInTheDocument();
     expect(screen.getByText("Sync #3")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "同步历史数据" }));
