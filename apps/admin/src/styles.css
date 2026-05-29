@@ -158,6 +158,59 @@ summary {
   align-items: start;
 }
 
+.latest-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.analysis-card {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  border: 1px solid rgba(150, 161, 179, 0.2);
+  border-radius: 8px;
+  background: rgba(13, 17, 23, 0.9);
+  padding: 16px;
+}
+
+.analysis-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.analysis-card h2 {
+  margin: 4px 0 0;
+  color: #f8fafc;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.analysis-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(70px, 1fr));
+  gap: 8px;
+}
+
+.analysis-summary {
+  min-height: 42px;
+  margin: 0;
+  color: #d6deea;
+  line-height: 1.45;
+}
+
+.analysis-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #9aa7b8;
+  font-family: "Fira Code", Consolas, monospace;
+  font-size: 12px;
+}
+
 .product-shell {
   background: linear-gradient(180deg, rgba(19, 23, 31, 0.86), rgba(8, 10, 15, 0.98) 420px);
 }

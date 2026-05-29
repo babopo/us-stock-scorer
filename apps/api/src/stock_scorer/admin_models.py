@@ -187,3 +187,31 @@ class ScoreSnapshotResponse(BaseModel):
 class ScoreSnapshotsResponse(BaseModel):
     ticker: str
     snapshots: list[ScoreSnapshotResponse]
+
+
+class OperationRecommendationResponse(BaseModel):
+    action: str
+    label: str
+    reason: str
+
+
+class LatestAnalysisItemResponse(BaseModel):
+    ticker: str
+    status: str
+    date: str | None
+    source: str | None
+    company_name: str | None
+    last_price: float | None
+    medium_term_score: int | None
+    short_term_score: int | None
+    decision_summary: str
+    recommendation: OperationRecommendationResponse
+    factors: list[dict[str, Any]]
+    risks: list[str]
+    created_at: str | None
+
+
+class LatestAnalysisResponse(BaseModel):
+    tickers: list[str]
+    updated_after_market_close: bool
+    items: list[LatestAnalysisItemResponse]

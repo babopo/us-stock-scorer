@@ -14,6 +14,9 @@ from stock_scorer.admin_models import (
     HistorySyncRequestModel,
     HistorySyncResponse,
     HistorySyncRunsResponse,
+    LatestAnalysisItemResponse,
+    LatestAnalysisResponse,
+    OperationRecommendationResponse,
     ProviderHealth,
     ProviderStatusResponse,
     RawTickerDataResponse,
@@ -46,6 +49,7 @@ from stock_scorer.backtesting import BacktestRequest, run_backtest
 from stock_scorer.history_sync import HistorySyncRequest, sync_historical_data
 from stock_scorer.research_store import (
     archive_strategy_candidate,
+    get_latest_score_snapshots,
     initialize_research_store,
     get_score_snapshots,
     list_backtest_runs,
@@ -57,6 +61,8 @@ from stock_scorer.research_store import (
 from stock_scorer.score_service import get_active_source_label, get_configured_data_sources, get_stock_score
 from stock_scorer.strategy_evolution import EvolutionRequest, evolve_strategy
 
+
+DEFAULT_RESEARCH_TICKERS = ["NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "AMD", "INTC"]
 
 app = FastAPI(title="US Stock Scorer API", version="0.1.0", docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(
@@ -171,10 +177,95 @@ def admin_ticker_score_snapshots(ticker: str, date: str | None = None) -> ScoreS
     return ScoreSnapshotsResponse(ticker=normalized, snapshots=[asdict(snapshot) for snapshot in snapshots])
 
 
+@app.get(
+    "/v1/admin/research/latest-analysis",
+    response_model=LatestAnalysisResponse,
+    dependencies=[Depends(require_admin_access)],
+)
+def admin_latest_analysis() -> LatestAnalysisResponse:
+    initialize_research_store()
+    with open_research_connection() as connection:
+        snapshots = get_latest_score_snapshots(connection, DEFAULT_RESEARCH_TICKERS)
+    return LatestAnalysisResponse(
+        tickers=DEFAULT_RESEARCH_TICKERS,
+        updated_after_market_close=True,
+        items=[_latest_analysis_item(ticker, snapshots.get(ticker)) for ticker in DEFAULT_RESEARCH_TICKERS],
+    )
+
+
 @app.post("/v1/admin/stocks/{ticker}/refresh", response_model=RefreshTickerResponse, dependencies=[Depends(require_admin_access)])
 def admin_refresh_ticker(ticker: str) -> RefreshTickerResponse:
     normalized = ticker.upper()
     return RefreshTickerResponse(ticker=normalized, status="completed", score=stock_score(normalized))
+
+
+def _latest_analysis_item(ticker: str, snapshot: object | None) -> LatestAnalysisItemResponse:
+    if snapshot is None:
+        return LatestAnalysisItemResponse(
+            ticker=ticker,
+            status="missing",
+            date=None,
+            source=None,
+            company_name=None,
+            last_price=None,
+            medium_term_score=None,
+            short_term_score=None,
+            decision_summary="等待盘后数据更新。",
+            recommendation=OperationRecommendationResponse(
+                action="wait_update",
+                label="等待更新",
+                reason="没有可用的盘后分析快照。",
+            ),
+            factors=[],
+            risks=[],
+            created_at=None,
+        )
+
+    score = snapshot.score
+    decision = score.get("decision", {}) if isinstance(score.get("decision"), dict) else {}
+    recommendation = _operation_recommendation(
+        medium_score=int(snapshot.medium_term_score),
+        short_score=int(snapshot.short_term_score),
+        action=str(decision.get("action", snapshot.action)),
+    )
+    return LatestAnalysisItemResponse(
+        ticker=snapshot.ticker,
+        status="ready",
+        date=snapshot.date,
+        source=snapshot.source,
+        company_name=_optional_string(score.get("company_name")),
+        last_price=_optional_float(score.get("last_price")),
+        medium_term_score=snapshot.medium_term_score,
+        short_term_score=snapshot.short_term_score,
+        decision_summary=str(decision.get("summary", "")),
+        recommendation=recommendation,
+        factors=[factor for factor in score.get("factors", []) if isinstance(factor, dict)],
+        risks=[str(risk) for risk in decision.get("risks", [])] if isinstance(decision.get("risks"), list) else [],
+        created_at=snapshot.created_at,
+    )
+
+
+def _operation_recommendation(medium_score: int, short_score: int, action: str) -> OperationRecommendationResponse:
+    if action == "avoid" or medium_score < 45:
+        return OperationRecommendationResponse(action="sell", label="抛售", reason="中期评分转弱或系统判定为回避。")
+    if medium_score >= 80 and short_score >= 70:
+        return OperationRecommendationResponse(action="add", label="加仓", reason="中期和短期评分都强，适合顺势提高仓位。")
+    if medium_score >= 65 and short_score >= 55:
+        return OperationRecommendationResponse(action="build_position", label="建仓", reason="中期评分达标，短期条件允许分批建仓。")
+    return OperationRecommendationResponse(action="trim", label="减仓", reason="评分未达到进攻条件，优先降低仓位风险。")
+
+
+def _optional_string(value: object) -> str | None:
+    return str(value) if value is not None else None
+
+
+def _optional_float(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 @app.get("/v1/admin/backtests/runs", response_model=BacktestRunsResponse, dependencies=[Depends(require_admin_access)])

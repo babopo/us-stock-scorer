@@ -103,6 +103,36 @@ export interface ScoreSnapshots {
 
 export type RefreshTickerResponse = Record<string, unknown>;
 
+export type OperationRecommendationAction = "build_position" | "sell" | "add" | "trim" | "wait_update";
+
+export interface OperationRecommendation {
+  action: OperationRecommendationAction;
+  label: string;
+  reason: string;
+}
+
+export interface LatestAnalysisItem {
+  ticker: string;
+  status: "ready" | "missing";
+  date: string | null;
+  source: string | null;
+  company_name: string | null;
+  last_price: number | null;
+  medium_term_score: number | null;
+  short_term_score: number | null;
+  decision_summary: string;
+  recommendation: OperationRecommendation;
+  factors: FactorScore[];
+  risks: string[];
+  created_at: string | null;
+}
+
+export interface LatestAnalysisResponse {
+  tickers: string[];
+  updated_after_market_close: boolean;
+  items: LatestAnalysisItem[];
+}
+
 export interface AdminLoginResponse {
   access_token: string;
   token_type: "bearer";
@@ -281,6 +311,7 @@ export interface StockScorerClient {
   getProviderStatus(): Promise<ProviderStatus>;
   getTickerRawData(ticker: string): Promise<TickerRawData>;
   getScoreSnapshots(ticker: string, options?: ScoreSnapshotOptions): Promise<ScoreSnapshots>;
+  getLatestAnalysis(): Promise<LatestAnalysisResponse>;
   refreshTicker(ticker: string): Promise<RefreshTickerResponse>;
   loginAdmin(username: string, password: string): Promise<AdminLoginResponse>;
   getAdminSession(): Promise<AdminSessionResponse>;

@@ -2,9 +2,9 @@ import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@ta
 import { Button, ConfigProvider, Layout, Menu, Tag, theme } from "antd";
 import { FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { BrowserRouter, NavLink, useLocation } from "react-router-dom";
-import { Activity, BarChart3, DatabaseZap, FlaskConical, LogOut, Search, ShieldCheck } from "lucide-react";
+import { Activity, BarChart3, DatabaseZap, FlaskConical, Home, LogOut, Search, ShieldCheck } from "lucide-react";
 
-import { isApiError, type StockScorerClient } from "@stock-scorer/api-client";
+import { isApiError, type LatestAnalysisItem, type StockScorerClient } from "@stock-scorer/api-client";
 
 import { createDefaultAdminApiClient } from "../api/client";
 import { BacktestingPanel } from "../features/backtesting/BacktestingPanel";
@@ -137,7 +137,10 @@ export function App({ client }: AppProps) {
 
 function AdminDashboard({ client, onLogout }: { client: StockScorerClient; onLogout(): void }) {
   const location = useLocation();
-  const selectedKey = navigationItems.find((item) => location.pathname.startsWith(item.path))?.path || "/score";
+  const selectedKey =
+    location.pathname === "/"
+      ? "/"
+      : navigationItems.find((item) => item.path !== "/" && location.pathname.startsWith(item.path))?.path || "/";
 
   return (
     <Layout className="admin-layout">
@@ -199,6 +202,9 @@ function MobileSectionTabs({ selectedKey }: { selectedKey: string }) {
 }
 
 function renderAdminPage(pathname: string, client: StockScorerClient) {
+  if (pathname === "/") {
+    return <HomePage client={client} />;
+  }
   if (pathname.startsWith("/strategy")) {
     return <StrategyPage client={client} />;
   }
@@ -212,6 +218,7 @@ function renderAdminPage(pathname: string, client: StockScorerClient) {
 }
 
 const navigationItems = [
+  { path: "/", label: "首页", icon: <Home aria-hidden="true" size={17} /> },
   { path: "/score", label: "数据查询", icon: <Search aria-hidden="true" size={17} /> },
   { path: "/strategy", label: "策略管理", icon: <FlaskConical aria-hidden="true" size={17} /> },
   { path: "/backtests", label: "回测实验", icon: <BarChart3 aria-hidden="true" size={17} /> },
@@ -242,6 +249,109 @@ function ScorePage({ client }: { client: StockScorerClient }) {
       <ScoreDebugger client={client} />
     </PageShell>
   );
+}
+
+function HomePage({ client }: { client: StockScorerClient }) {
+  const { data, isLoading, error } = useLatestAnalysis(client);
+
+  return (
+    <PageShell title="盘后分析首页" eyebrow="Post-close research">
+      {error ? <div className="error-panel" role="alert">{formatUnknownError(error)}</div> : null}
+      {isLoading ? <div className="empty-state">Loading latest analysis...</div> : null}
+      {data ? (
+        <div className="latest-analysis-grid">
+          {data.items.map((item) => (
+            <article className={`analysis-card recommendation-${item.recommendation.action}`} key={item.ticker}>
+              <div className="analysis-card-head">
+                <div>
+                  <span className="ticker">{item.ticker}</span>
+                  <h2>{item.company_name || "等待盘后快照"}</h2>
+                </div>
+                <Tag color={recommendationColor(item.recommendation.action)}>{item.recommendation.label}</Tag>
+              </div>
+
+              <div className="analysis-metrics">
+                <div className="metric metric-gold">
+                  <span>中期</span>
+                  <strong>{formatScore(item.medium_term_score)}</strong>
+                </div>
+                <div className="metric metric-blue">
+                  <span>短期</span>
+                  <strong>{formatScore(item.short_term_score)}</strong>
+                </div>
+                <div className="metric metric-plain">
+                  <span>价格</span>
+                  <strong>{formatPrice(item.last_price)}</strong>
+                </div>
+              </div>
+
+              <p className="analysis-summary">{item.decision_summary || item.recommendation.reason}</p>
+              <div className="analysis-meta">
+                <span>{item.date ? `As of ${item.date}` : "No snapshot"}</span>
+                <span>{item.source || "pending"}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </PageShell>
+  );
+}
+
+function useLatestAnalysis(client: StockScorerClient) {
+  const [data, setData] = useState<Awaited<ReturnType<StockScorerClient["getLatestAnalysis"]>> | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true);
+    setError(null);
+    client
+      .getLatestAnalysis()
+      .then((result) => {
+        if (active) {
+          setData(result);
+        }
+      })
+      .catch((nextError: unknown) => {
+        if (active) {
+          setError(nextError);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [client]);
+
+  return { data, error, isLoading };
+}
+
+function recommendationColor(action: LatestAnalysisItem["recommendation"]["action"]): string {
+  if (action === "add" || action === "build_position") {
+    return "green";
+  }
+  if (action === "trim") {
+    return "gold";
+  }
+  if (action === "sell") {
+    return "red";
+  }
+  return "default";
+}
+
+function formatScore(score: number | null): string {
+  return score === null ? "--" : String(score);
+}
+
+function formatPrice(price: number | null): string {
+  return price === null ? "--" : `$${price.toFixed(2)}`;
 }
 
 function StrategyPage({ client }: { client: StockScorerClient }) {
@@ -387,4 +497,11 @@ function formatAuthError(error: unknown): string {
     return `${error.code}: ${error.message}`;
   }
   return error instanceof Error ? error.message : "Login failed";
+}
+
+function formatUnknownError(error: unknown): string {
+  if (isApiError(error)) {
+    return `${error.code}: ${error.message}`;
+  }
+  return error instanceof Error ? error.message : "Request failed";
 }

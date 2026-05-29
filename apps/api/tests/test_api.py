@@ -4,7 +4,13 @@ from fastapi.testclient import TestClient
 
 from stock_scorer.app import app
 from stock_scorer.market_data import DailyBar, MarketDataRateLimited, MarketSnapshot
-from stock_scorer.research_store import initialize_research_store, insert_strategy_version, open_research_connection, upsert_historical_bars
+from stock_scorer.research_store import (
+    initialize_research_store,
+    insert_strategy_version,
+    open_research_connection,
+    upsert_historical_bars,
+    upsert_score_snapshot,
+)
 from stock_scorer import score_service
 
 
@@ -402,7 +408,6 @@ def test_admin_history_sync_routes_trigger_and_list_runs(tmp_path, monkeypatch):
 def test_admin_score_snapshots_route_returns_persisted_snapshots(tmp_path, monkeypatch):
     monkeypatch.setenv("STOCK_SCORER_DB_PATH", str(tmp_path / "research.sqlite3"))
     initialize_research_store()
-    from stock_scorer.research_store import upsert_score_snapshot
 
     with open_research_connection() as connection:
         upsert_score_snapshot(
@@ -444,6 +449,57 @@ def test_admin_score_snapshots_route_returns_persisted_snapshots(tmp_path, monke
     assert payload["snapshots"][0]["medium_term_score"] == 70
 
 
+def test_admin_latest_analysis_route_returns_default_universe_with_recommendations(tmp_path, monkeypatch):
+    monkeypatch.setenv("STOCK_SCORER_DB_PATH", str(tmp_path / "research.sqlite3"))
+    initialize_research_store()
+
+    with open_research_connection() as connection:
+        upsert_score_snapshot(
+            connection,
+            ticker="NVDA",
+            date="2026-05-28",
+            source="fmp",
+            score=_latest_analysis_score("NVDA", medium=86, short=82, action="buy_in_tranches"),
+            input_snapshot={"daily_bar_count": 80},
+        )
+        upsert_score_snapshot(
+            connection,
+            ticker="AAPL",
+            date="2026-05-28",
+            source="fmp",
+            score=_latest_analysis_score("AAPL", medium=55, short=48, action="wait"),
+            input_snapshot={"daily_bar_count": 80},
+        )
+        upsert_score_snapshot(
+            connection,
+            ticker="MSFT",
+            date="2026-05-28",
+            source="fmp",
+            score=_latest_analysis_score("MSFT", medium=38, short=42, action="avoid"),
+            input_snapshot={"daily_bar_count": 80},
+        )
+
+    response = client.get(
+        "/v1/admin/research/latest-analysis",
+        headers=admin_static_auth_headers(monkeypatch),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["tickers"] == ["NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "AMD", "INTC"]
+    assert payload["updated_after_market_close"] is True
+    assert payload["items"][0]["ticker"] == "NVDA"
+    assert payload["items"][0]["recommendation"]["action"] == "add"
+    assert payload["items"][0]["recommendation"]["label"] == "加仓"
+    assert payload["items"][1]["recommendation"]["action"] == "trim"
+    assert payload["items"][1]["recommendation"]["label"] == "减仓"
+    assert payload["items"][2]["recommendation"]["action"] == "sell"
+    assert payload["items"][2]["recommendation"]["label"] == "抛售"
+    assert payload["items"][3]["ticker"] == "AMZN"
+    assert payload["items"][3]["status"] == "missing"
+    assert payload["items"][3]["recommendation"]["label"] == "等待更新"
+
+
 def _api_backtest_bars() -> list[DailyBar]:
     bars = []
     for index in range(90):
@@ -462,6 +518,34 @@ def _api_backtest_bars() -> list[DailyBar]:
             )
         )
     return bars
+
+
+def _latest_analysis_score(ticker: str, medium: int, short: int, action: str) -> dict[str, object]:
+    return {
+        "ticker": ticker,
+        "company_name": f"{ticker} Corporation",
+        "last_price": 100.0,
+        "medium_term_score": medium,
+        "medium_term_label": "positive" if medium >= 60 else "weak",
+        "short_term_score": short,
+        "short_term_label": "probe" if short >= 60 else "avoid",
+        "factors": [
+            {
+                "name": "趋势/动量",
+                "score": short,
+                "evidence": ["测试动量证据"],
+            }
+        ],
+        "decision": {
+            "action": action,
+            "summary": "测试建议摘要",
+            "trigger_conditions": ["突破触发位"],
+            "invalidation_conditions": ["跌破失效位"],
+            "risks": ["测试风险"],
+        },
+        "data_as_of": "2026-05-28",
+        "data_source": "fmp",
+    }
 
 
 def test_score_endpoint_falls_back_to_finnhub_when_fmp_is_rate_limited(monkeypatch):

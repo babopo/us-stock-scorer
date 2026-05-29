@@ -15,6 +15,7 @@ import type {
   HistorySyncResponse,
   HistorySyncRunsResponse,
   HttpMethod,
+  LatestAnalysisResponse,
   QueryParams,
   RefreshTickerResponse,
   StockScorerClient,
@@ -100,6 +101,10 @@ export function createStockScorerClient(options: StockScorerClientOptions): Stoc
           date: options && options.date
         }
       });
+    },
+
+    getLatestAnalysis() {
+      return request<LatestAnalysisResponse>("GET", "/v1/admin/research/latest-analysis");
     },
 
     refreshTicker(ticker) {

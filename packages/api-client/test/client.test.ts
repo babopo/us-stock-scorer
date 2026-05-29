@@ -285,3 +285,27 @@ test("getScoreSnapshots calls the score snapshot endpoint with optional date", a
   assert.equal(requests[0]?.url, "http://127.0.0.1:8000/v1/admin/stocks/MSFT/snapshots");
   assert.deepEqual(requests[0]?.query, { date: "2026-03-31" });
 });
+
+test("getLatestAnalysis calls the homepage analysis endpoint", async () => {
+  const requests: ApiRequest[] = [];
+  const client = createStockScorerClient({
+    baseUrl: "http://127.0.0.1:8000",
+    transport: async <T = unknown>(request: ApiRequest) => {
+      requests.push(request);
+      return {
+        status: 200,
+        headers: {},
+        data: {
+          tickers: ["NVDA", "AAPL"],
+          updated_after_market_close: true,
+          items: []
+        } as T
+      };
+    }
+  });
+
+  await client.getLatestAnalysis();
+
+  assert.equal(requests[0]?.method, "GET");
+  assert.equal(requests[0]?.url, "http://127.0.0.1:8000/v1/admin/research/latest-analysis");
+});

@@ -29,7 +29,7 @@ describe("App auth gate", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-password" } });
     fireEvent.click(screen.getByRole("button", { name: "Log in" }));
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "六维评分雷达" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "盘后分析首页" })).toBeInTheDocument());
     expect(client.loginAdmin).toHaveBeenCalledWith("admin", "secret-password");
     expect(sessionStorage.getItem(STORAGE_KEY)).toBe("admin-session-token");
   });
@@ -58,7 +58,7 @@ describe("App auth gate", () => {
 
     render(<App client={client} />);
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "六维评分雷达" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "盘后分析首页" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Log out" }));
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "工作台登录" })).toBeInTheDocument());
@@ -72,9 +72,12 @@ describe("App auth gate", () => {
 
     render(<App client={client} />);
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "数据查询" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "盘后分析首页" })).toBeInTheDocument());
 
     const desktopNav = screen.getByRole("navigation", { name: "Desktop sections" });
+
+    fireEvent.click(within(desktopNav).getByRole("link", { name: "数据查询" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "数据查询" })).toBeInTheDocument());
 
     fireEvent.click(within(desktopNav).getByRole("link", { name: "策略管理" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "策略管理" })).toBeInTheDocument());
@@ -100,6 +103,22 @@ describe("App auth gate", () => {
     expect(within(mobileNav).getByRole("link", { name: "数据查询" })).toBeInTheDocument();
     expect(within(mobileNav).getByRole("link", { name: "运维操作" })).toBeInTheDocument();
   });
+
+  it("renders the homepage with latest post-close analysis and operation recommendations", async () => {
+    sessionStorage.setItem(STORAGE_KEY, "admin-session-token");
+    window.history.pushState({}, "", "/");
+    const client = createTestClient();
+
+    render(<App client={client} />);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "盘后分析首页" })).toBeInTheDocument());
+    expect(screen.getByText("NVDA")).toBeInTheDocument();
+    expect(screen.getByText("NVIDIA Corporation")).toBeInTheDocument();
+    expect(screen.getByText("加仓")).toBeInTheDocument();
+    expect(screen.getByText("AAPL")).toBeInTheDocument();
+    expect(screen.getByText("等待更新")).toBeInTheDocument();
+    expect(client.getLatestAnalysis).toHaveBeenCalled();
+  });
 });
 
 function createTestClient(overrides: Partial<StockScorerClient> = {}): StockScorerClient {
@@ -114,6 +133,50 @@ function createTestClient(overrides: Partial<StockScorerClient> = {}): StockScor
     })),
     getTickerRawData: vi.fn(),
     getScoreSnapshots: vi.fn(),
+    getLatestAnalysis: vi.fn(async () => ({
+      tickers: ["NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "AMD", "INTC"],
+      updated_after_market_close: true,
+      items: [
+        {
+          ticker: "NVDA",
+          status: "ready",
+          date: "2026-05-28",
+          source: "fmp",
+          company_name: "NVIDIA Corporation",
+          last_price: 142.5,
+          medium_term_score: 88,
+          short_term_score: 82,
+          decision_summary: "趋势强，允许顺势提高仓位。",
+          recommendation: {
+            action: "add",
+            label: "加仓",
+            reason: "中期和短期评分都强。"
+          },
+          factors: [],
+          risks: ["估值偏高"],
+          created_at: "2026-05-29T06:30:00"
+        },
+        {
+          ticker: "AAPL",
+          status: "missing",
+          date: null,
+          source: null,
+          company_name: null,
+          last_price: null,
+          medium_term_score: null,
+          short_term_score: null,
+          decision_summary: "等待盘后数据更新。",
+          recommendation: {
+            action: "wait_update",
+            label: "等待更新",
+            reason: "没有可用的盘后分析快照。"
+          },
+          factors: [],
+          risks: [],
+          created_at: null
+        }
+      ]
+    })),
     refreshTicker: vi.fn(),
     getBacktestRuns: vi.fn(async () => ({ runs: [] })),
     runBacktest: vi.fn(),

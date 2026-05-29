@@ -413,6 +413,23 @@ def get_score_snapshots(
     return [_score_snapshot_from_row(row) for row in reversed(rows)]
 
 
+def get_latest_score_snapshots(connection: sqlite3.Connection, tickers: list[str]) -> dict[str, StoredScoreSnapshot]:
+    latest: dict[str, StoredScoreSnapshot] = {}
+    for ticker in tickers:
+        row = connection.execute(
+            """
+            select * from score_snapshots
+            where ticker = ?
+            order by date desc, created_at desc
+            limit 1
+            """,
+            (ticker.upper(),),
+        ).fetchone()
+        if row is not None:
+            latest[ticker.upper()] = _score_snapshot_from_row(row)
+    return latest
+
+
 def insert_backtest_run(
     connection: sqlite3.Connection,
     *,
